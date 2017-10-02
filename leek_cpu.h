@@ -10,7 +10,7 @@
 /* Arbitrary maximum thread count */
 #define LEEK_THREADS_MAX          512
 #define LEEK_KEYSIZE_MIN    (1 << 10)
-#define LEEK_KEYSIZE_MAX    (1 << 16)
+#define LEEK_KEYSIZE_MAX    (1 << 13)
 
 
 /* Holds worker related information */
@@ -34,7 +34,8 @@ struct leek_context {
 	struct leek_worker *worker;
 
 	/* Hash-rate and Statistics */
-	struct timespec last_ts;
+	struct timespec ts_start;
+	struct timespec ts_last;
 	uint64_t last_hash_count;
 	uint64_t found_hashes;
 };

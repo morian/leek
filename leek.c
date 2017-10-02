@@ -1,4 +1,5 @@
-#define _POSIX_C_SOURCE  199309L
+#define _POSIX_C_SOURCE 199309L
+#define _DEFAULT_SOURCE 1
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
@@ -116,6 +117,12 @@ static int leek_options_parse(int argc, char *argv[])
 		ret = -1;
 	}
 
+	if (__builtin_popcount(leek.config.keysize) > 1) {
+		fprintf(stderr, "[-] error: key size must be a power of 2.\n");
+		ret = -1;
+	}
+
+
 	if (!leek.config.input_path) {
 		fprintf(stderr, "[-] error: no input prefix file provided.\n");
 		ret = -1;
@@ -138,6 +145,7 @@ static void leek_exit(void)
 }
 
 
+/* returns microseconds delta since last update */
 static uint64_t leek_clock_update(void)
 {
 	uint64_t timediff_usec = 0;
@@ -148,16 +156,32 @@ static uint64_t leek_clock_update(void)
 	if (ret < 0)
 		goto out;
 
-	if (leek.last_ts.tv_nsec > curr_ts.tv_nsec)
-		timediff_usec = 1000000 - (leek.last_ts.tv_nsec - curr_ts.tv_nsec) / 1000;
-	else
-		timediff_usec = (curr_ts.tv_nsec - leek.last_ts.tv_nsec) / 1000;
+	timediff_usec = 1000000 * (curr_ts.tv_sec - leek.ts_last.tv_sec);
 
-	timediff_usec += 1000000 * (curr_ts.tv_sec - leek.last_ts.tv_sec);
-	leek.last_ts = curr_ts;
+	if (leek.ts_last.tv_nsec > curr_ts.tv_nsec)
+		timediff_usec -= ((leek.ts_last.tv_nsec - curr_ts.tv_nsec) / 1000);
+	else
+		timediff_usec += (curr_ts.tv_nsec - leek.ts_last.tv_nsec) / 1000;
+
+	leek.ts_last = curr_ts;
 
 out:
 	return timediff_usec;
+}
+
+
+/* returns milliseconds delta from start */
+static uint64_t leek_clock_elapsed(void)
+{
+	uint64_t timediff_msec = 0;
+
+	timediff_msec = 1000 * (leek.ts_last.tv_sec - leek.ts_start.tv_sec);
+
+	if (leek.ts_start.tv_nsec > leek.ts_last.tv_nsec)
+		timediff_msec -= ((leek.ts_start.tv_nsec - leek.ts_last.tv_nsec) / 1000000);
+	else
+		timediff_msec += (leek.ts_last.tv_nsec - leek.ts_start.tv_nsec) / 1000000;
+	return timediff_msec;
 }
 
 
@@ -183,6 +207,8 @@ static int leek_workers_init(void)
 		}
 	}
 	leek_clock_update();
+	/* Set the start timer to the current timespec value. */
+	leek.ts_start = leek.ts_last;
 
 	ret = 0;
 out:
@@ -215,6 +241,8 @@ static int leek_init(void)
 	struct leek_prefixes *lp;
 	int ret = -1;
 
+	printf("/!\\ Pool on the roof must have a leek /!\\\n");
+
 	lp = leek_readfile(leek.config.input_path);
 	if (!lp)
 		goto out;
@@ -232,9 +260,8 @@ static int leek_init(void)
 				printf("%04x - %016lx\n", i, lp->bucket[i].data[j]);
 #endif
 
-		printf("word count: %u\n", lp->word_count);
-		printf("inv. count: %u\n", lp->invalid_count);
-		printf("dup. count: %u\n", lp->duplicate_count);
+		printf("Word count: %u (invalids: %u, duplicates: %u).\n",
+		       lp->word_count, lp->invalid_count, lp->duplicate_count);
 	}
 
 	ret = leek_workers_init();
@@ -286,8 +313,13 @@ void leek_metric_humanize(double value, double *result,
 
 static void leek_metric_display(void)
 {
-	uint64_t hash_diff = leek_hashcount_update();;
-	uint64_t time_diff = leek_clock_update();;
+	uint64_t hash_diff = leek_hashcount_update();
+	uint64_t time_diff = leek_clock_update();
+	uint64_t elapsed = leek_clock_elapsed();
+	unsigned int hours;
+	unsigned int minutes;
+	unsigned int seconds;
+	unsigned int dseconds;
 	unsigned char hash_found_unit = ' ';
 	unsigned char hash_rate_unit = ' ';
 	unsigned char hash_total_unit = ' ';
@@ -307,13 +339,18 @@ static void leek_metric_display(void)
 	hash_found_raw = leek.found_hashes;
 	leek_metric_humanize(hash_found_raw, &hash_found, &hash_found_unit);
 
+	dseconds = (elapsed %    1000) /  100;
+	seconds  = (elapsed /    1000) %   60;
+	minutes  = (elapsed /   60000) % 3600;
+	hours    = (elapsed / 3600000);
 
-	/* Show elasped time (?) */
+	printf("Hashes: %6.2lf%cH/s   Total: %6.2lf%cH   Found: %6.2lf%cH   Elapsed:%4u:%02u:%02u.%u",
+	       hash_rate, hash_rate_unit, hash_total, hash_total_unit,
+	       hash_found, hash_found_unit,
+	       hours, minutes, seconds, dseconds);
+	/* Show probabilities estimation (and target time?) */
+	printf("\r");
 
-	printf("Hashes: %6.2lf%cH/s   Total: %6.2lf%cH   Found: %6.2lf%cH\r",
-	       hash_rate, hash_rate_unit,
-	       hash_total, hash_total_unit,
-	       hash_found, hash_found_unit);
 	fflush(stdout);
 }
 
@@ -331,7 +368,7 @@ int main(int argc, char *argv[])
 		goto exit;
 
 	while (1) {
-		sleep(1);
+		usleep(100000);
 		leek_metric_display();
 	}
 
