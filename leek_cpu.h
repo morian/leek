@@ -8,6 +8,7 @@
 # include "leek_helper.h"
 
 /* Arbitrary maximum thread count */
+#define LEEK_CPU_VERSION       "v0.9"
 #define LEEK_THREADS_MAX          512
 #define LEEK_KEYSIZE_MIN    (1 << 10)
 #define LEEK_KEYSIZE_MAX    (1 << 13)

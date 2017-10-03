@@ -241,7 +241,16 @@ static int leek_init(void)
 	struct leek_prefixes *lp;
 	int ret = -1;
 
-	printf("/!\\ Pool on the roof must have a leek /!\\\n");
+	printf(".________________________________________________.\n");
+	printf("|                                                |\n");
+	printf("|         Pool on the root must have a           |\n");
+	printf("|   .____     ______________________ ____  __.   |\n");
+	printf("|   |    |    \\_   _____/\\_   _____/|    |/ _|   |\n");
+	printf("|   |    |     |    __)_  |    __)_ |      <     |\n");
+	printf("|   |    |___  |        \\ |        \\|    |  \\    |\n");
+	printf("|   |_______ \\/_______  //_______  /|____|__ \\   |\n");
+	printf("|           \\/        \\/         \\/  %6s \\/   |\n", LEEK_CPU_VERSION);
+	printf(".________________________________________________.\n\n");
 
 	lp = leek_readfile(leek.config.input_path);
 	if (!lp)
@@ -344,11 +353,13 @@ static void leek_metric_display(void)
 	minutes  = (elapsed /   60000) % 3600;
 	hours    = (elapsed / 3600000);
 
-	printf("Hashes: %6.2lf%cH/s   Total: %6.2lf%cH   Found: %6.2lf%cH   Elapsed:%4u:%02u:%02u.%u",
+	printf("Hashes: %6.2lf%cH/s   Total: %6.2lf%cH   Found: %6.2lf%cH   Elapsed:%3u:%02u:%02u.%u",
 	       hash_rate, hash_rate_unit, hash_total, hash_total_unit,
 	       hash_found, hash_found_unit,
 	       hours, minutes, seconds, dseconds);
+
 	/* Show probabilities estimation (and target time?) */
+
 	printf("\r");
 
 	fflush(stdout);
