@@ -10,12 +10,12 @@
 
 #include "leek_cpu.h"
 
-#define LEEK_SIZE_OF_E         4 /* bytes */
 
 /* This value ensures that our exponent will always be 4 bytes wide
  * We may consider starting at RSA_F4 instead and handle 3 bytes exponent. */
+#define LEEK_RSA_E_SIZE        4 /* bytes */
 #define LEEK_RSA_E_START       0x01000001
-#define LEEK_RSA_E_LIMIT       0xFFFFFFFF
+#define LEEK_RSA_E_LIMIT       0xFFFFFFFD
 
 
 /* Holds the crypto stuff we need in workers */
@@ -106,7 +106,7 @@ static int leek_crypto_rsa_rekey(struct leek_crypto *lc)
 
 
 	leek_sha1_init(lc);
-	leek_sha1_update(lc, der, derlen - LEEK_SIZE_OF_E);
+	leek_sha1_update(lc, der, derlen - LEEK_RSA_E_SIZE);
 
 	printf("HASHLEN: %zu\n", 10 * sizeof(SHA_LONG));
 	printf("DERLEN: %u\n", derlen);
@@ -214,7 +214,7 @@ static int leek_worker_rsa_exhaust(struct leek_worker *wk, struct leek_crypto *l
 		memcpy(&hash, &lc->hash, 10 * sizeof(SHA_LONG));
 		hash.num = lc->hash.num;
 
-		SHA1_Update(&hash, &e_be, LEEK_SIZE_OF_E);
+		SHA1_Update(&hash, &e_be, LEEK_RSA_E_SIZE);
 		SHA1_Final(sha1_buffer, &hash);
 
 		/* This is not required here */

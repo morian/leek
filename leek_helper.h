@@ -30,13 +30,17 @@ struct leek_prefixes {
 	unsigned int invalid_count;
 	unsigned int word_count;
 
+	unsigned int length_min;
+	unsigned int length_max;
+
 	/* Amount of data is provided in word_count field */
 	struct leek_prefix_bucket bucket[LEEK_BUCKETS];
 };
 
 
 /* Common shared functions */
-struct leek_prefixes * leek_readfile(const char *filename);
+struct leek_prefixes *leek_readfile(const char *filename,
+                                    unsigned int flt_min, unsigned int flt_max);
 void leek_prefixes_free(struct leek_prefixes *lp);
 
 

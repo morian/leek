@@ -24,10 +24,11 @@ enum {
 
 
 static struct option leek_long_options[] = {
-	{"key-size", 1, 0, 'k'},
 	{"input",    1, 0, 'i'},
+	{"length",   1, 0, 'l'},
+	{"key-size", 1, 0, 'k'},
 	{"threads",  1, 0, 't'},
-	{"stop",     0, 0, 's'},
+	{"stop",     2, 0, 's'},
 	{"verbose",  0, 0, 'v'},
 	{"help",     0, 0, 'h'},
 	{NULL, 0, 0, 0},
@@ -38,13 +39,45 @@ static void leek_usage(FILE *fp, const char *prog_name)
 {
 	fprintf(fp, "Usage: %s [OPTIONS]\n", prog_name);
 	fprintf(fp, "\n");
-	fprintf(fp, " -i, --input       input file containing prefixes.\n");
-	fprintf(fp, " -k, --key-size    RSA key size (default is 1024).\n");
-	fprintf(fp, " -t, --threads=#   number of threads to start (default is 1).\n");
-	fprintf(fp, " -s, --stop        stop processing after one success.\n");
-	fprintf(fp, " -v, --verbose     show verbose run information.\n");
-	fprintf(fp, " -h, --help        show this help and exit.\n");
+	fprintf(fp, " -i, --input        input file containing prefixes.\n");
+	fprintf(fp, " -l, --length=N:M   length range filter [%u-%u].\n",
+	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
+	fprintf(fp, " -k, --key-size     RSA key size (default is 1024).\n");
+	fprintf(fp, " -t, --threads=#    number of threads to start (default is 1).\n");
+	fprintf(fp, " -s, --stop(=1)     stop processing after # success (default is infinite).\n");
+	fprintf(fp, " -v, --verbose      show verbose run information.\n");
+	fprintf(fp, " -h, --help         show this help and exit.\n");
 	fprintf(fp, "\n");
+}
+
+
+static int leek_range_parse(const char * ptr_a,
+                            unsigned int * arg_a, unsigned int * arg_b)
+{
+	const char *ptr_b;
+	unsigned long val_a;
+	unsigned long val_b;
+	int ret = -1;
+
+	ptr_b = strchr(ptr_a, ':');
+	if (!ptr_b)
+		goto out;
+	ptr_b++;
+
+	val_a = strtoul(ptr_a, NULL, 10);
+	if (errno == ERANGE || val_a > UINT_MAX)
+		goto out;
+
+	val_b = strtoul(ptr_b, NULL, 10);
+	if (errno == ERANGE || val_b > UINT_MAX)
+		goto out;
+
+	*arg_a = val_a;
+	*arg_b = val_b;
+
+	ret = 0;
+out:
+	return ret;
 }
 
 
@@ -52,7 +85,11 @@ static int leek_options_parse(int argc, char *argv[])
 {
 	int ret = -1;
 
-	/* default slicing configuration */
+	/* Automatically configured while loading prefixes */
+	leek.config.len_min = 0;
+	leek.config.len_max = 0;
+
+	/* These are default values */
 	leek.config.threads = 1;
 	leek.config.keysize = LEEK_KEYSIZE_MIN;
 
@@ -60,7 +97,7 @@ static int leek_options_parse(int argc, char *argv[])
 		unsigned long val;
 		int c;
 
-		c = getopt_long(argc, argv, "i:k:t:svh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:i:k:t:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -83,12 +120,30 @@ static int leek_options_parse(int argc, char *argv[])
 				leek.config.threads = val;
 				break;
 
+			case 'l':
+				ret = leek_range_parse(optarg, &leek.config.len_min, &leek.config.len_max);
+				if (ret < 0) {
+					fprintf(stderr, "[-] error: unable to read length argument.\n");
+					goto out;
+				}
+				break;
+
 			case 'i':
 				leek.config.input_path = optarg;
 				break;
 
 			case 's':
 				leek.config.flags |= LEEK_FLAG_STOP;
+				if (!optarg)
+					leek.config.stop_count = 1;
+				else {
+					val = strtoul(optarg, NULL, 10);
+					if (errno == ERANGE || val > UINT_MAX) {
+						fprintf(stderr, "[-] error: unable to read stop argument.\n");
+						goto out;
+					}
+					leek.config.stop_count = val;
+				}
 				break;
 
 			case 'v':
@@ -122,6 +177,20 @@ static int leek_options_parse(int argc, char *argv[])
 		ret = -1;
 	}
 
+	if (   (leek.config.len_min > LEEK_LENGTH_MAX)
+	    || (leek.config.len_max > LEEK_LENGTH_MAX)
+	    || (leek.config.len_min && (leek.config.len_min < LEEK_LENGTH_MIN))
+	    || (leek.config.len_min > leek.config.len_max)) {
+		fprintf(stderr, "[-] error: provided length range is invalid [%u-%u].\n",
+		        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
+		ret = -1;
+	}
+
+
+	if ((leek.config.flags & LEEK_FLAG_STOP) && !leek.config.stop_count) {
+		fprintf(stderr, "[-] error: stop argument cannot be 0.\n");
+		ret = -1;
+	}
 
 	if (!leek.config.input_path) {
 		fprintf(stderr, "[-] error: no input prefix file provided.\n");
@@ -236,6 +305,7 @@ static int leek_worker_join(void)
 	return (has_error) ? -1 : 0;
 }
 
+
 static int leek_init(void)
 {
 	struct leek_prefixes *lp;
@@ -252,12 +322,12 @@ static int leek_init(void)
 	printf("|           \\/        \\/         \\/  %6s \\/   |\n", LEEK_CPU_VERSION);
 	printf(".________________________________________________.\n\n");
 
-	lp = leek_readfile(leek.config.input_path);
+	lp = leek_readfile(leek.config.input_path, leek.config.len_min, leek.config.len_max);
 	if (!lp)
 		goto out;
 
 	if (!lp->word_count) {
-		fprintf(stderr, "[-] error: no valid prefix in %s.\n", leek.config.input_path);
+		fprintf(stderr, "[-] error: no matching prefix in %s.\n", leek.config.input_path);
 		goto lp_free;
 	}
 	leek.prefixes = lp;
@@ -269,13 +339,28 @@ static int leek_init(void)
 				printf("%04x - %016lx\n", i, lp->bucket[i].data[j]);
 #endif
 
-		printf("Word count: %u (invalids: %u, duplicates: %u).\n",
-		       lp->word_count, lp->invalid_count, lp->duplicate_count);
+		if (lp->length_min == lp->length_max)
+			printf("[+] Loaded %u valid prefixes with size %u.\n",
+			       lp->word_count, lp->length_min);
+		else
+			printf("[+] Loaded %u valid prefixes in range %u:%u.\n",
+			       lp->word_count, lp->length_min, lp->length_max);
+
+		/* Update attack range with dictionnary content. */
+		leek.config.len_min = lp->length_min;
+		leek.config.len_max = lp->length_max;
+
+		if (lp->invalid_count || lp->duplicate_count)
+			printf("[!] Rejected %u invalid and %u duplicate prefixes.\n",
+			       lp->invalid_count, lp->duplicate_count);
 	}
 
 	ret = leek_workers_init();
 	if (ret < 0)
 		goto out;
+
+	if (leek.config.flags & LEEK_FLAG_VERBOSE)
+		printf("[>] There is no right and wrong. There's only fun and boring.\n");
 
 	ret = 0;
 out:
@@ -317,27 +402,25 @@ void leek_metric_humanize(double value, double *result,
 			return;
 		}
 	}
+
+	/* Default behavior (wtf!) */
+	*result_unit = ' ';
+	*result = value;
 }
 
 
 static void leek_metric_display(void)
 {
+	static const unsigned char anim_chars[] = {'-','/','|','\\'};
+	static unsigned int anim_id = 0;
+
 	uint64_t hash_diff = leek_hashcount_update();
 	uint64_t time_diff = leek_clock_update();
 	uint64_t elapsed = leek_clock_elapsed();
-	unsigned int hours;
-	unsigned int minutes;
-	unsigned int seconds;
-	unsigned int dseconds;
-	unsigned char hash_found_unit = ' ';
-	unsigned char hash_rate_unit = ' ';
-	unsigned char hash_total_unit = ' ';
-	double hash_found_raw;
-	double hash_rate_raw;
-	double hash_total_raw;
-	double hash_found;
-	double hash_rate;
-	double hash_total;
+	unsigned char hash_found_unit, hash_rate_unit, hash_total_unit;
+	double hash_found_raw, hash_rate_raw, hash_total_raw;
+	double hash_found, hash_rate, hash_total;
+	unsigned int hours, minutes, seconds, dseconds;
 
 	hash_rate_raw = (1000000.0 * hash_diff) / time_diff;
 	leek_metric_humanize(hash_rate_raw, &hash_rate, &hash_rate_unit);
@@ -353,10 +436,13 @@ static void leek_metric_display(void)
 	minutes  = (elapsed /   60000) % 3600;
 	hours    = (elapsed / 3600000);
 
-	printf("Hashes: %6.2lf%cH/s   Total: %6.2lf%cH   Found: %6.2lf%cH   Elapsed:%3u:%02u:%02u.%u",
-	       hash_rate, hash_rate_unit, hash_total, hash_total_unit,
+	printf("[%c] Hashes: %6.2lf%cH/s   Total: %6.2lf%cH   Found: %6.2lf%cH   Elapsed:%3u:%02u:%02u.%u",
+	       anim_chars[anim_id],
+	       hash_rate, hash_rate_unit,
+	       hash_total, hash_total_unit,
 	       hash_found, hash_found_unit,
 	       hours, minutes, seconds, dseconds);
+	anim_id = (anim_id + 1) % sizeof(anim_chars);
 
 	/* Show probabilities estimation (and target time?) */
 

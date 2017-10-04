@@ -8,10 +8,12 @@
 # include "leek_helper.h"
 
 /* Arbitrary maximum thread count */
-#define LEEK_CPU_VERSION       "v0.9"
-#define LEEK_THREADS_MAX          512
-#define LEEK_KEYSIZE_MIN    (1 << 10)
-#define LEEK_KEYSIZE_MAX    (1 << 13)
+#define LEEK_CPU_VERSION            "v0.9"
+#define LEEK_LENGTH_MIN                  4
+#define LEEK_LENGTH_MAX   LEEK_ADDRESS_LEN
+#define LEEK_THREADS_MAX               512
+#define LEEK_KEYSIZE_MIN         (1 << 10)
+#define LEEK_KEYSIZE_MAX         (1 << 13)
 
 
 /* Holds worker related information */
@@ -27,6 +29,9 @@ struct leek_context {
 		const char *input_path;    /* Input prefix file */
 		unsigned int keysize;      /* RSA key size */
 		unsigned int threads;      /* Number of running threads */
+		unsigned int stop_count;   /* Stop after # successes (with LEEK_FLAG_STOP) */
+		unsigned int len_min;      /* Minimum prefix size */
+		unsigned int len_max;      /* Maximum prefix size */
 		unsigned int flags;        /* See enum bellow */
 	} config;
 

@@ -64,10 +64,14 @@ void leek_prefixes_free(struct leek_prefixes *lp)
 	}
 }
 
-static int leek_word_validate(const char *word, unsigned int len)
+static int leek_word_validate(const char *word, unsigned int len,
+                              unsigned int flt_min, unsigned int flt_max)
 {
-	if (!len || len > LEEK_ADDRESS_LEN)
+	if (   (!len || len > LEEK_ADDRESS_LEN)
+	    || (flt_min && len < flt_min)
+	    || (flt_max && len > flt_max))
 		return 0;
+
 	for (unsigned int i = 0; i < len; ++i) {
 		if ((word[i] < 'a' || word[i] > 'z') && (word[i] < '2' || word[i] > '7'))
 			return 0;
@@ -77,14 +81,16 @@ static int leek_word_validate(const char *word, unsigned int len)
 
 
 static int leek_prefixes_enqueue(struct leek_prefixes *lp,
-                                 const char *word, unsigned int len)
+                                 const char *word, unsigned int len,
+                                 unsigned int flt_min, unsigned int flt_max)
 {
 	struct leek_prefix_bucket *bucket;
 	union leek_rawaddr addr;
 	unsigned int cur_count;
 	uint64_t *ptr;
+	int ret = -1;
 
-	if (leek_word_validate(word, len)) {
+	if (leek_word_validate(word, len, flt_min, flt_max)) {
 		leek_base32_dec(addr.buffer, word);
 		bucket = &lp->bucket[addr.index];
 		cur_count = bucket->cur_count;
@@ -93,23 +99,30 @@ static int leek_prefixes_enqueue(struct leek_prefixes *lp,
 			ptr = realloc(bucket->data, (cur_count + LEEK_BUCKETS_INC) * sizeof(*bucket->data));
 			if (!ptr) {
 				fprintf(stderr, "[-] realloc: %s\n", strerror(errno));
-				return -1;
+				goto out;
 			}
 			bucket->max_count += LEEK_BUCKETS_INC;
 			bucket->data = ptr;
 		}
 		bucket->data[cur_count] = addr.suffix;
 		bucket->cur_count++;
+		ret = 1;
 	}
-	else
+	else {
 		lp->invalid_count++;
-	return 0;
+		ret = 0;
+	}
+out:
+	return ret;
 }
 
 
-static int leek_prefixes_parse(struct leek_prefixes *lp, FILE *fp)
+static int leek_prefixes_parse(struct leek_prefixes *lp, FILE *fp,
+                               unsigned int flt_min, unsigned int flt_max)
 {
 	size_t line_size = LEEK_ADDRESS_LEN + 1;
+	unsigned int len_min = LEEK_ADDRESS_LEN;
+	unsigned int len_max = 0;
 	char *line;
 	int ret = -1;
 
@@ -129,13 +142,24 @@ static int leek_prefixes_parse(struct leek_prefixes *lp, FILE *fp)
 		length = ret - 1;
 		line[length] = 0;
 
-		ret = leek_prefixes_enqueue(lp, line, length);
+		ret = leek_prefixes_enqueue(lp, line, length, flt_min, flt_max);
 		if (ret < 0)
 			goto line_free;
+
+		/* Enqueue succeeded */
+		if (ret) {
+			/* Update prefixes properties */
+			if (length < len_min)
+				len_min = length;
+			if (length > len_max)
+				len_max = length;
+		}
 	}
 
-	ret = 0;
+	lp->length_min = len_min;
+	lp->length_max = len_max;
 
+	ret = 0;
 line_free:
 	free(line);
 out:
@@ -187,7 +211,8 @@ static void leek_prefixes_sort(struct leek_prefixes *lp)
 }
 
 
-struct leek_prefixes * leek_readfile(const char *filename)
+struct leek_prefixes *leek_readfile(const char *filename,
+                                    unsigned int flt_min, unsigned int flt_max)
 {
 	struct leek_prefixes * lp = NULL;
 	FILE *fp;
@@ -203,12 +228,11 @@ struct leek_prefixes * leek_readfile(const char *filename)
 	if (!lp)
 		goto close;
 
-	ret = leek_prefixes_parse(lp, fp);
+	ret = leek_prefixes_parse(lp, fp, flt_min, flt_max);
 	if (ret < 0)
 		goto error_free;
 
 	leek_prefixes_sort(lp);
-
 
 close:
 	fclose(fp);
