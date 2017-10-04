@@ -14,6 +14,7 @@
 #define LEEK_THREADS_MAX               512
 #define LEEK_KEYSIZE_MIN         (1 << 10)
 #define LEEK_KEYSIZE_MAX         (1 << 13)
+#define LEEK_MONITOR_INTERVAL          200 /* msecs */
 
 
 /* Holds worker related information */

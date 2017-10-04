@@ -8,6 +8,7 @@
 # define LEEK_BUCKETS            (1 << 16)
 # define LEEK_BUCKETS_INC        8
 
+typedef __uint128_t uint128_t;
 
 union leek_rawaddr {
 	uint8_t buffer[LEEK_RAWADDR_LEN];
@@ -32,6 +33,8 @@ struct leek_prefixes {
 
 	unsigned int length_min;
 	unsigned int length_max;
+
+	uint128_t hash_count_target;
 
 	/* Amount of data is provided in word_count field */
 	struct leek_prefix_bucket bucket[LEEK_BUCKETS];

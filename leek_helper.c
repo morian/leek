@@ -9,13 +9,6 @@
 
 /* abcdefghijklmnopqrstuvwxyz234567 */
 
-/* TODO (library):
- * - Read input file into an allocated list of items
- * - Remove and count duplicates and invalids
- * - Count duplicates, invalids and final wordcount
-*/
-
-
 static void leek_base32_dec(uint8_t *dst, const char *src)
 {
 	uint8_t tmp[LEEK_ADDRESS_LEN + 1];
@@ -117,9 +110,22 @@ out:
 }
 
 
+static uint128_t leek_hash_count_target(unsigned int pfx_cnt_per_size[LEEK_ADDRESS_LEN])
+{
+	uint128_t hash_count_target = 0;
+
+	for (unsigned int i = 0; i < LEEK_ADDRESS_LEN; ++i)
+		if (pfx_cnt_per_size[i])
+			hash_count_target += (((uint128_t) 1) << (i * 5)) / pfx_cnt_per_size[i];
+
+	return hash_count_target;
+}
+
+
 static int leek_prefixes_parse(struct leek_prefixes *lp, FILE *fp,
                                unsigned int flt_min, unsigned int flt_max)
 {
+	unsigned int pfx_cnt_per_size[LEEK_ADDRESS_LEN] = { 0 };
 	size_t line_size = LEEK_ADDRESS_LEN + 1;
 	unsigned int len_min = LEEK_ADDRESS_LEN;
 	unsigned int len_max = 0;
@@ -153,9 +159,12 @@ static int leek_prefixes_parse(struct leek_prefixes *lp, FILE *fp,
 				len_min = length;
 			if (length > len_max)
 				len_max = length;
+			pfx_cnt_per_size[length]++;
 		}
 	}
 
+	/* Hash count target may loose accuracy when duplicates are found. */
+	lp->hash_count_target = leek_hash_count_target(pfx_cnt_per_size);
 	lp->length_min = len_min;
 	lp->length_max = len_max;
 

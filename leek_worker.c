@@ -13,9 +13,10 @@
 
 /* This value ensures that our exponent will always be 4 bytes wide
  * We may consider starting at RSA_F4 instead and handle 3 bytes exponent. */
-#define LEEK_RSA_E_SIZE        4 /* bytes */
+#define LEEK_RSA_E_SIZE                 4 /* bytes */
 #define LEEK_RSA_E_START       0x01000001
-#define LEEK_RSA_E_LIMIT       0xFFFFFFFD
+/* This limit allows for 8 parallel computations */
+#define LEEK_RSA_E_LIMIT       0xFFFFFFF9
 
 
 /* Holds the crypto stuff we need in workers */
@@ -200,6 +201,7 @@ out:
 }
 
 
+/* TODO: move me elsewhere 'cause im hot */
 static int leek_worker_rsa_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 {
 	uint8_t sha1_buffer[SHA_DIGEST_LENGTH];
@@ -226,6 +228,20 @@ static int leek_worker_rsa_exhaust(struct leek_worker *wk, struct leek_crypto *l
 }
 
 
+static void leek_crypto_test(void)
+{
+	uint8_t sha1_dgst[SHA_DIGEST_LENGTH];
+	SHA_CTX sha1;
+
+	SHA1_Init(&sha1);
+	SHA1_Final(sha1_dgst, &sha1);
+
+	for (int i = 0; i < SHA_DIGEST_LENGTH; ++i)
+		printf("%02x", sha1_dgst[i]);
+	printf("\n");
+}
+
+
 void *leek_worker(void *arg)
 {
 	struct leek_worker *wk = arg;
@@ -235,6 +251,8 @@ void *leek_worker(void *arg)
 	lc = leek_crypto_init();
 	if (!lc)
 		goto out;
+
+	leek_crypto_test();
 
 	while (1) {
 		ret = leek_crypto_rsa_rekey(lc);

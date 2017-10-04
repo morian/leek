@@ -333,18 +333,17 @@ static int leek_init(void)
 	leek.prefixes = lp;
 
 	if (leek.config.flags & LEEK_FLAG_VERBOSE) {
-#if 0
-		for (unsigned int i = 0; i < LEEK_BUCKETS; ++i)
-			for (unsigned int j = 0; j < lp->bucket[i].cur_count; ++j)
-				printf("%04x - %016lx\n", i, lp->bucket[i].data[j]);
-#endif
-
 		if (lp->length_min == lp->length_max)
 			printf("[+] Loaded %u valid prefixes with size %u.\n",
 			       lp->word_count, lp->length_min);
 		else
 			printf("[+] Loaded %u valid prefixes in range %u:%u.\n",
 			       lp->word_count, lp->length_min, lp->length_max);
+
+		{
+			uint64_t *ptr = (uint64_t *) &lp->hash_count_target;
+			printf("Target Hash Count: %lx%016lx\n", ptr[1], ptr[0]);
+		}
 
 		/* Update attack range with dictionnary content. */
 		leek.config.len_min = lp->length_min;
@@ -408,6 +407,23 @@ void leek_metric_humanize(double value, double *result,
 	*result = value;
 }
 
+static void leek_metric_timer_display(const char *prefix, uint64_t msecs)
+{
+	unsigned int seconds  = (msecs /    1000) % 60;
+	unsigned int minutes  = (msecs /   60000) % 60;
+	unsigned int hours    = (msecs / 3600000);
+
+	printf("%s%3u:%02u:%02u", prefix, hours, minutes, seconds);
+}
+
+
+static uint64_t leek_metric_estimate_get(uint64_t elapsed)
+{
+	uint128_t msecs =
+		(leek.prefixes->hash_count_target * elapsed) / leek.last_hash_count;
+	return msecs;
+}
+
 
 static void leek_metric_display(void)
 {
@@ -415,12 +431,13 @@ static void leek_metric_display(void)
 	static unsigned int anim_id = 0;
 
 	uint64_t hash_diff = leek_hashcount_update();
-	uint64_t time_diff = leek_clock_update();
-	uint64_t elapsed = leek_clock_elapsed();
-	unsigned char hash_found_unit, hash_rate_unit, hash_total_unit;
-	double hash_found_raw, hash_rate_raw, hash_total_raw;
-	double hash_found, hash_rate, hash_total;
-	unsigned int hours, minutes, seconds, dseconds;
+	uint64_t time_diff = leek_clock_update(); /* usecs */
+	uint64_t elapsed = leek_clock_elapsed(); /* msecs */
+	uint64_t estimate;
+	unsigned char hash_rate_unit, hash_total_unit;
+	double hash_rate_raw, hash_total_raw;
+	double hash_rate, hash_total;
+	double progress;
 
 	hash_rate_raw = (1000000.0 * hash_diff) / time_diff;
 	leek_metric_humanize(hash_rate_raw, &hash_rate, &hash_rate_unit);
@@ -428,27 +445,30 @@ static void leek_metric_display(void)
 	hash_total_raw = leek.last_hash_count;
 	leek_metric_humanize(hash_total_raw, &hash_total, &hash_total_unit);
 
-	hash_found_raw = leek.found_hashes;
-	leek_metric_humanize(hash_found_raw, &hash_found, &hash_found_unit);
-
-	dseconds = (elapsed %    1000) /  100;
-	seconds  = (elapsed /    1000) %   60;
-	minutes  = (elapsed /   60000) % 3600;
-	hours    = (elapsed / 3600000);
-
-	printf("[%c] Hashes: %6.2lf%cH/s   Total: %6.2lf%cH   Found: %6.2lf%cH   Elapsed:%3u:%02u:%02u.%u",
-	       anim_chars[anim_id],
-	       hash_rate, hash_rate_unit,
-	       hash_total, hash_total_unit,
-	       hash_found, hash_found_unit,
-	       hours, minutes, seconds, dseconds);
-	anim_id = (anim_id + 1) % sizeof(anim_chars);
-
-	/* Show probabilities estimation (and target time?) */
+	flockfile(stdout);
 
 	printf("\r");
+	printf("[%c] Speed:%5.1lf%cH/s   Total:%6.2lf%cH",
+	       anim_chars[anim_id],
+	       hash_rate, hash_rate_unit,
+	       hash_total, hash_total_unit);
+
+	if (leek.last_hash_count) {
+		estimate = leek_metric_estimate_get(elapsed);
+		leek_metric_timer_display("   Estimate:", estimate);
+		progress = (100.0L * elapsed) / estimate;
+	}
+
+	leek_metric_timer_display("   Elapsed:", elapsed);
+
+	if (leek.last_hash_count)
+		printf(" (%6.2lf%%)", progress);
 
 	fflush(stdout);
+
+	funlockfile(stdout);
+
+	anim_id = (anim_id + 1) % sizeof(anim_chars);
 }
 
 
@@ -465,7 +485,7 @@ int main(int argc, char *argv[])
 		goto exit;
 
 	while (1) {
-		usleep(100000);
+		usleep(LEEK_MONITOR_INTERVAL * 1000);
 		leek_metric_display();
 	}
 
