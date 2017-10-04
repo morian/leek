@@ -40,6 +40,8 @@ struct leek_prefixes {
 	struct leek_prefix_bucket bucket[LEEK_BUCKETS];
 };
 
+/* Prefix comparison function */
+int leek_prefixes_suffix_cmp(const void *a, const void *b);
 
 /* Common shared functions */
 struct leek_prefixes *leek_readfile(const char *filename,

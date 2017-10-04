@@ -19,8 +19,8 @@ static void leek_base32_dec(uint8_t *dst, const char *src)
 		else if (src[i] >= '2' && src[i] <= '7')
 			tmp[i] = src[i] - '1' + ('z' - 'a');
 		else
-			/* Unknown garbage, fill with 0x1F */
-			tmp[i] = 31;
+			/* Unknown garbage */
+			tmp[i] = 0x1F;
 	}
 
 	dst[0] = (tmp[ 0] << 3) | (tmp[ 1] >> 2);
@@ -60,9 +60,7 @@ void leek_prefixes_free(struct leek_prefixes *lp)
 static int leek_word_validate(const char *word, unsigned int len,
                               unsigned int flt_min, unsigned int flt_max)
 {
-	if (   (!len || len > LEEK_ADDRESS_LEN)
-	    || (flt_min && len < flt_min)
-	    || (flt_max && len > flt_max))
+	if (len < flt_min || len > flt_max)
 		return 0;
 
 	for (unsigned int i = 0; i < len; ++i) {
@@ -176,7 +174,7 @@ out:
 }
 
 
-static int leek_prefix_cmp(const void *a, const void *b)
+int leek_prefixes_suffix_cmp(const void *a, const void *b)
 {
 	const uint64_t *va = a;
 	const uint64_t *vb = b;
@@ -201,7 +199,7 @@ static void leek_prefixes_sort(struct leek_prefixes *lp)
 		if (!count)
 			continue;
 
-		qsort(bucket->data, count, sizeof *bucket->data, leek_prefix_cmp);
+		qsort(bucket->data, count, sizeof *bucket->data, leek_prefixes_suffix_cmp);
 		for (unsigned int j = 1; j < count; ++j) {
 			if (bucket->data[j] == bucket->data[j - 1]) {
 				bucket->data[j - 1] = 0xFFFFFFFFFFFFFFFFUL;
@@ -210,7 +208,7 @@ static void leek_prefixes_sort(struct leek_prefixes *lp)
 		}
 
 		if (duplicates > 0) {
-			qsort(bucket->data, count, sizeof *bucket->data, leek_prefix_cmp);
+			qsort(bucket->data, count, sizeof *bucket->data, leek_prefixes_suffix_cmp);
 			bucket->cur_count -= duplicates;
 			count = bucket->cur_count;
 		}

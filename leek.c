@@ -86,8 +86,8 @@ static int leek_options_parse(int argc, char *argv[])
 	int ret = -1;
 
 	/* Automatically configured while loading prefixes */
-	leek.config.len_min = 0;
-	leek.config.len_max = 0;
+	leek.config.len_min = LEEK_LENGTH_MIN;
+	leek.config.len_max = LEEK_LENGTH_MAX;
 
 	/* These are default values */
 	leek.config.threads = 1;
@@ -177,9 +177,8 @@ static int leek_options_parse(int argc, char *argv[])
 		ret = -1;
 	}
 
-	if (   (leek.config.len_min > LEEK_LENGTH_MAX)
+	if (   (leek.config.len_min < LEEK_LENGTH_MIN)
 	    || (leek.config.len_max > LEEK_LENGTH_MAX)
-	    || (leek.config.len_min && (leek.config.len_min < LEEK_LENGTH_MIN))
 	    || (leek.config.len_min > leek.config.len_max)) {
 		fprintf(stderr, "[-] error: provided length range is invalid [%u-%u].\n",
 		        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
@@ -339,11 +338,6 @@ static int leek_init(void)
 		else
 			printf("[+] Loaded %u valid prefixes in range %u:%u.\n",
 			       lp->word_count, lp->length_min, lp->length_max);
-
-		{
-			uint64_t *ptr = (uint64_t *) &lp->hash_count_target;
-			printf("Target Hash Count: %lx%016lx\n", ptr[1], ptr[0]);
-		}
 
 		/* Update attack range with dictionnary content. */
 		leek.config.len_min = lp->length_min;
