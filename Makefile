@@ -1,7 +1,7 @@
 CFLAGS    := -std=gnu11 -pipe -O3                      \
              -Wall -Werror -Wextra -Wshadow -Wformat=2 \
              -Wnested-externs -Wchar-subscripts -Wpointer-arith
-LDLIBS    := -lssl -lcrypto
+LDLIBS    := -lm -lssl -lcrypto
 LDFLAGS   := -pthread
 
 LEEK_BIN  := leek

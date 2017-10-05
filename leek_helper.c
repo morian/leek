@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE  200809L
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -108,15 +109,13 @@ out:
 }
 
 
-static uint128_t leek_hash_count_target(unsigned int pfx_cnt_per_size[LEEK_ADDRESS_LEN])
+static long double leek_hash_count_target(unsigned int pfx_cnt_per_size[LEEK_ADDRESS_LEN])
 {
-	uint128_t hash_count_target = 0;
+	long double prob_found_1 = 0.0;
 
 	for (unsigned int i = 0; i < LEEK_ADDRESS_LEN; ++i)
-		if (pfx_cnt_per_size[i])
-			hash_count_target += (((uint128_t) 1) << (i * 5)) / pfx_cnt_per_size[i];
-
-	return hash_count_target;
+		prob_found_1 += pfx_cnt_per_size[i] / powl(2, 5*(i+1));
+	return prob_found_1;
 }
 
 
@@ -157,12 +156,12 @@ static int leek_prefixes_parse(struct leek_prefixes *lp, FILE *fp,
 				len_min = length;
 			if (length > len_max)
 				len_max = length;
-			pfx_cnt_per_size[length]++;
+			pfx_cnt_per_size[length - 1]++;
 		}
 	}
 
-	/* Hash count target may loose accuracy when duplicates are found. */
-	lp->hash_count_target = leek_hash_count_target(pfx_cnt_per_size);
+	/* This is the probability to find a match for 1 hash (veryyy low) */
+	lp->prob_find_1 = leek_hash_count_target(pfx_cnt_per_size);
 	lp->length_min = len_min;
 	lp->length_max = len_max;
 

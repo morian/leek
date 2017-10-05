@@ -340,8 +340,16 @@ static int leek_adress_recheck(const union leek_rawaddr *addr, const RSA *rsa)
 	else
 		goto out;
 
-	if (memcmp(&sha1, addr, sizeof(*addr))) {
-		fprintf(stderr, "address recheck failed\n");
+	if (memcmp(&sha1.address, addr, sizeof(*addr))) {
+		flockfile(stderr);
+		fprintf(stderr, "\naddress recheck failed:\n");
+		for (unsigned int i = 0; i < sizeof(*addr); ++i)
+			fprintf(stderr, "%02x ", addr->buffer[i]);
+		fprintf(stderr, "\n");
+		for (unsigned int i = 0; i < sizeof(*addr); ++i)
+			fprintf(stderr, "%02x ", sha1.digest[i]);
+		fprintf(stderr, "\n");
+		funlockfile(stderr);
 		goto out;
 	}
 
