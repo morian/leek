@@ -58,12 +58,8 @@ void leek_prefixes_free(struct leek_prefixes *lp)
 	}
 }
 
-static int leek_word_validate(const char *word, unsigned int len,
-                              unsigned int flt_min, unsigned int flt_max)
+static int leek_word_validate(const char *word, unsigned int len)
 {
-	if (len < flt_min || len > flt_max)
-		return 0;
-
 	for (unsigned int i = 0; i < len; ++i) {
 		if ((word[i] < 'a' || word[i] > 'z') && (word[i] < '2' || word[i] > '7'))
 			return 0;
@@ -73,8 +69,7 @@ static int leek_word_validate(const char *word, unsigned int len,
 
 
 static int leek_prefixes_enqueue(struct leek_prefixes *lp,
-                                 const char *word, unsigned int len,
-                                 unsigned int flt_min, unsigned int flt_max)
+                                 const char *word, unsigned int len)
 {
 	struct leek_prefix_bucket *bucket;
 	union leek_rawaddr addr;
@@ -82,7 +77,7 @@ static int leek_prefixes_enqueue(struct leek_prefixes *lp,
 	uint64_t *ptr;
 	int ret = -1;
 
-	if (leek_word_validate(word, len, flt_min, flt_max)) {
+	if (leek_word_validate(word, len)) {
 		leek_base32_dec(addr.buffer, word);
 		bucket = &lp->bucket[addr.index];
 		cur_count = bucket->cur_count;
@@ -145,18 +140,23 @@ static int leek_prefixes_parse(struct leek_prefixes *lp, FILE *fp,
 		length = ret - 1;
 		line[length] = 0;
 
-		ret = leek_prefixes_enqueue(lp, line, length, flt_min, flt_max);
-		if (ret < 0)
-			goto line_free;
 
-		/* Enqueue succeeded */
-		if (ret) {
-			/* Update prefixes properties */
-			if (length < len_min)
-				len_min = length;
-			if (length > len_max)
-				len_max = length;
-			pfx_cnt_per_size[length - 1]++;
+		if (length < flt_min || length > flt_max)
+			lp->filtered_count++;
+		else {
+			ret = leek_prefixes_enqueue(lp, line, length);
+			if (ret < 0)
+				goto line_free;
+
+			/* Enqueue succeeded */
+			if (ret) {
+				/* Update prefixes properties */
+				if (length < len_min)
+					len_min = length;
+				if (length > len_max)
+					len_max = length;
+				pfx_cnt_per_size[length - 1]++;
+			}
 		}
 	}
 

@@ -359,8 +359,33 @@ out:
 }
 
 
-static void leek_result_display(RSA *rsa, uint32_t e,
-                                const union leek_rawaddr *addr, int length)
+static void leek_result_write(const uint8_t *onion, const uint8_t *prv_key,
+                              size_t prv_len)
+{
+	size_t result_path_sz;
+	char *result_path;
+	FILE *fp;
+
+	result_path_sz = strlen(leek.config.output_path) + LEEK_ADDRESS_LEN
+	                 + strlen(".onion.key") + 2;
+	result_path = alloca(result_path_sz);
+
+	snprintf(result_path, result_path_sz, "%s/%.16s.onion.key",
+	         leek.config.output_path, onion);
+
+	fp = fopen(result_path, "w");
+	if (!fp) {
+		fprintf(stderr, "[-] fopen: %s\n", strerror(errno));
+		return;
+	}
+
+	fwrite(prv_key, prv_len, 1, fp);
+	fclose(fp);
+}
+
+
+void leek_result_display(RSA *rsa, uint32_t e, int length,
+                         const union leek_rawaddr *addr)
 {
 	uint8_t onion_address[LEEK_ADDRESS_LEN];
 	unsigned int popcnt = __builtin_popcount(e);
@@ -379,7 +404,6 @@ static void leek_result_display(RSA *rsa, uint32_t e,
 
 	prv_output = alloca(buffer->length);
 	memcpy(prv_output, buffer->data, buffer->length);
-	BIO_free(bp);
 
 	/* Are you excited to find out wich domain we got? */
 	leek_base32_enc(onion_address, addr->buffer);
@@ -391,9 +415,17 @@ static void leek_result_display(RSA *rsa, uint32_t e,
 		printf("\n");
 		printf("[+] Found %.16s.onion (size=%u, popcnt(e)=%u, ID=%u)\n",
 		       onion_address, length, popcnt, found_hash_count);
-		printf("%s\n", prv_output);
+
+		if (leek.config.output_path)
+			leek_result_write(onion_address, prv_output, buffer->length);
+		else
+			printf("%s\n", prv_output);
 		funlockfile(stdout);
 	}
+
+	/* Clear underlying memory for private key export. */
+	memset(prv_output, 0, buffer->length);
+	BIO_free(bp);
 
 	/* We only perform exit if we are the thread issuing the last result */
 	if (leek.config.stop_count && found_hash_count == leek.config.stop_count) {
@@ -404,14 +436,10 @@ static void leek_result_display(RSA *rsa, uint32_t e,
 
 
 int leek_address_check(struct leek_crypto *lc, unsigned int e,
-                       const union leek_rawaddr *addr, int length)
+                       const union leek_rawaddr *addr)
 {
 	uint32_t e_be = htobe32(e);
 	int ret = -1;
-
-	/* This is not supposed to happen but let's be carefull here */
-	if (length <= 0)
-		goto out;
 
 #if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1
 	BIGNUM *new_e;
@@ -444,9 +472,7 @@ int leek_address_check(struct leek_crypto *lc, unsigned int e,
 	if (ret < 0)
 		goto out;
 
-	leek_result_display(lc->rsa, e, addr, length);
 	ret = 0;
-
 out:
 	return ret;
 }

@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -18,15 +20,10 @@
 
 struct leek_context leek;
 
-/* Enumeration of individual flags from configuration */
-enum {
-	LEEK_FLAG_VERBOSE = (1 << 0), /* Run in verbose mode */
-	LEEK_FLAG_STOP    = (1 << 1), /* Stop after a single success */
-};
-
 
 static struct option leek_long_options[] = {
 	{"input",    1, 0, 'i'},
+	{"outdir",   1, 0, 'o'},
 	{"length",   1, 0, 'l'},
 	{"key-size", 1, 0, 'k'},
 	{"threads",  1, 0, 't'},
@@ -42,6 +39,7 @@ static void leek_usage(FILE *fp, const char *prog_name)
 	fprintf(fp, "Usage: %s [OPTIONS]\n", prog_name);
 	fprintf(fp, "\n");
 	fprintf(fp, " -i, --input        input file containing prefixes.\n");
+	fprintf(fp, " -o, --output       output file directory (default prints on stdout).\n");
 	fprintf(fp, " -l, --length=N:M   length range filter [%u-%u].\n",
 	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
 	fprintf(fp, " -k, --key-size     RSA key size (default is 1024).\n");
@@ -99,7 +97,7 @@ static int leek_options_parse(int argc, char *argv[])
 		unsigned long val;
 		int c;
 
-		c = getopt_long(argc, argv, "l:i:k:t:s::vh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:i:o:k:t:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -128,6 +126,10 @@ static int leek_options_parse(int argc, char *argv[])
 					fprintf(stderr, "[-] error: unable to read length argument.\n");
 					goto out;
 				}
+				break;
+
+			case 'o':
+				leek.config.output_path = optarg;
 				break;
 
 			case 'i':
@@ -204,13 +206,15 @@ out:
 
 static void leek_exit_locks(void)
 {
-	CRYPTO_set_locking_callback(NULL);
+	if (leek.openssl_locks) {
+		CRYPTO_set_locking_callback(NULL);
 
-	for(int i = 0; i < CRYPTO_num_locks(); ++i)
-		pthread_mutex_destroy(&leek.openssl_locks[i]);
+		for(int i = 0; i < CRYPTO_num_locks(); ++i)
+			pthread_mutex_destroy(&leek.openssl_locks[i]);
 
-	OPENSSL_free(leek.openssl_locks);
-	leek.openssl_locks = NULL;
+		OPENSSL_free(leek.openssl_locks);
+		leek.openssl_locks = NULL;
+	}
 }
 
 
@@ -339,15 +343,49 @@ static unsigned long leek_thread_id(void)
 }
 
 
-static void leek_init_locks(void)
+static int leek_init_locks(void)
 {
+	int ret = -1;
+
 	leek.openssl_locks = OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+	if (!leek.openssl_locks) {
+		fprintf(stderr, "[-] error: OPENSSL_malloc failed.\n");
+		goto out;
+	}
 
 	for(int i = 0; i < CRYPTO_num_locks(); ++i)
 		pthread_mutex_init(&leek.openssl_locks[i], NULL);
 
 	CRYPTO_set_id_callback(leek_thread_id);
 	CRYPTO_set_locking_callback(leek_lock_callback);
+
+	ret = 0;
+out:
+	return ret;
+}
+
+
+static int leek_init_outdir(void)
+{
+	int ret;
+
+	ret = access(leek.config.output_path, W_OK);
+	if (ret < 0) {
+		if (errno != ENOENT) {
+			fprintf(stderr, "[-] access: %s\n", strerror(errno));
+			goto out;
+		}
+
+		ret = mkdir(leek.config.output_path, 0x600);
+		if (ret < 0) {
+			fprintf(stderr, "[-] mkdir: %s\n", strerror(errno));
+			goto out;
+		}
+	}
+
+out:
+	return ret;
+
 }
 
 
@@ -367,8 +405,17 @@ static int leek_init(void)
 	printf("|           \\/        \\/         \\/  %6s \\/   |\n", LEEK_CPU_VERSION);
 	printf(".________________________________________________.\n\n");
 
+	/* Create output directory if needed */
+	if (leek.config.output_path) {
+		ret = leek_init_outdir();
+		if (ret < 0)
+			goto out;
+	}
+
 	/* OpenSSL locks allocation (required in MT environment) */
-	leek_init_locks();
+	ret = leek_init_locks();
+	if (ret < 0)
+		goto out;
 
 	lp = leek_readfile(leek.config.input_path, leek.config.len_min, leek.config.len_max);
 	if (!lp)
@@ -392,9 +439,9 @@ static int leek_init(void)
 		leek.config.len_min = lp->length_min;
 		leek.config.len_max = lp->length_max;
 
-		if (lp->invalid_count || lp->duplicate_count)
-			printf("[!] Rejected %u invalid and %u duplicate prefixes.\n",
-			       lp->invalid_count, lp->duplicate_count);
+		if (lp->invalid_count || lp->duplicate_count || lp->filtered_count)
+			printf("[!] Rejected %u invalid, %u filtered and %u duplicate prefixes.\n",
+			       lp->invalid_count, lp->filtered_count, lp->duplicate_count);
 	}
 
 	ret = leek_workers_init();

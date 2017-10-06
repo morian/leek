@@ -50,6 +50,7 @@ struct leek_context {
 	/* Structure holding configuration from argument parsing */
 	struct {
 		const char *input_path;    /* Input prefix file */
+		const char *output_path;   /* Output directory */
 		unsigned int keysize;      /* RSA key size */
 		unsigned int threads;      /* Number of running threads */
 		unsigned int stop_count;   /* Stop after # successes (with LEEK_FLAG_STOP) */
@@ -66,12 +67,20 @@ struct leek_context {
 	struct leek_worker *worker;
 
 	unsigned int found_hash_count;
+	unsigned int error_hash_count;
 
 	/* Hash-rate and Statistics */
 	struct timespec ts_start;
 	struct timespec ts_last;
 	uint64_t last_hash_count;
 };
+
+/* Enumeration of individual flags from configuration */
+enum {
+	LEEK_FLAG_VERBOSE = (1 << 0), /* Run in verbose mode */
+	LEEK_FLAG_STOP    = (1 << 1), /* Stop after a single success */
+};
+
 
 /* Global program context structure. */
 extern struct leek_context leek;
@@ -84,7 +93,9 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc);
 
 /* Address post validation (called by exhaust) */
 int leek_address_check(struct leek_crypto *lc, unsigned int e,
-                       const union leek_rawaddr *addr, int length);
+                       const union leek_rawaddr *addr);
+void leek_result_display(RSA *rsa, uint32_t e, int length,
+                         const union leek_rawaddr *addr);
 
 /* SHA1 unit interface */
 void leek_sha1_init(struct leek_crypto *lc);

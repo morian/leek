@@ -57,8 +57,9 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 	const union leek_rawaddr *sha1_addr;
 	uint32_t e = LEEK_RSA_E_START - 2;
 	uint32_t e_be;
-	int length;
 	SHA_CTX hash;
+	int length;
+	int ret;
 
 	sha1_addr = (const union leek_rawaddr *) &sha1_buffer;
 
@@ -76,8 +77,13 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 		SHA1_Final(sha1_buffer, &hash);
 
 		length = leek_lookup(sha1_addr);
-		if (length)
-			leek_address_check(lc, e, sha1_addr, length);
+		if (length) {
+			ret = leek_address_check(lc, e, sha1_addr);
+			if (ret < 0)
+				__sync_add_and_fetch(&leek.error_hash_count, 1);
+			else
+				leek_result_display(lc->rsa, e, length, sha1_addr);
+		}
 		wk->hash_count++;
 	}
 

@@ -26,6 +26,7 @@ struct leek_prefix_bucket {
 
 struct leek_prefixes {
 	unsigned int duplicate_count;
+	unsigned int filtered_count;
 	unsigned int invalid_count;
 	unsigned int word_count;
 
