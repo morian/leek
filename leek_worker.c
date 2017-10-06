@@ -63,6 +63,28 @@ der_free:
 }
 
 
+#ifdef DEBUG
+static void leek_crypto_der_show(const uint8_t *der, unsigned int len, FILE *fp)
+{
+	flockfile(fp);
+
+	fprintf(fp, "DER (%3u):\n", len);
+
+	for (unsigned int i = 0; i < len; ++i) {
+		fprintf(fp, "%02x", der[i]);
+		if ((i & 0xF) == 0xF)
+			fprintf(fp, "\n");
+	}
+	fprintf(fp, "\n");
+
+	funlockfile(fp);
+}
+#else
+
+# define leek_crypto_der_show(...)
+#endif
+
+
 static int leek_crypto_rsa_rekey(struct leek_crypto *lc)
 {
 	unsigned int derlen;
@@ -98,17 +120,7 @@ static int leek_crypto_rsa_rekey(struct leek_crypto *lc)
 	leek_sha1_init(lc);
 	leek_sha1_precalc(lc, der, derlen - LEEK_RSA_E_SIZE);
 
-#if 0
-	printf("HASHLEN: %zu\n", 10 * sizeof(SHA_LONG));
-	printf("DERLEN: %u\n", derlen);
-	for (int i = 0; i < derlen; ++i) {
-		printf("%02x", der[i]);
-		if ((i & 0xF) == 0xF)
-			printf("\n");
-	}
-	printf("\n");
-	printf("SHA_NUM: %u\n", lc->sha1.hash.num);
-#endif
+	leek_crypto_der_show(der, derlen, stderr);
 
 	ret = 0;
 out:
@@ -121,26 +133,6 @@ error:
 		RSA_free(rsa);
 	goto out;
 }
-
-
-#if 0
-/**
- * Re-implement with void *src
- * - cast 'src' to uint64_t
- *
- * v = *((uint64_t *) (src + 0));
- * for (int i = 0; i < 8; ++i)
- *      dst[i] = LEEK_BASE32_ALPHABET[v & 0x1F]
- *      v >>= 5
- * v = *((uint64_t *) (src + 5));
- * for (int i = 8; i < 16; ++i)
- *      dst[i] = LEEK_BASE32_ALPHABET[v & 0x1F]
- *      v >>= 5
- *
- */
-
-
-#endif
 
 
 static void leek_crypto_exit(struct leek_crypto *lc)
@@ -171,8 +163,8 @@ static struct leek_crypto *leek_crypto_init(void)
 		goto lc_free;
 	}
 
+	BN_set_word(big_e, LEEK_RSA_E_START);
 	lc->big_e = big_e;
-	BN_set_word(lc->big_e, LEEK_RSA_E_START);
 
 out:
 	return lc;
@@ -342,13 +334,8 @@ static int leek_adress_recheck(const union leek_rawaddr *addr, const RSA *rsa)
 
 	if (memcmp(&sha1.address, addr, sizeof(*addr))) {
 		flockfile(stderr);
-		fprintf(stderr, "\naddress recheck failed:\n");
-		for (unsigned int i = 0; i < sizeof(*addr); ++i)
-			fprintf(stderr, "%02x ", addr->buffer[i]);
-		fprintf(stderr, "\n");
-		for (unsigned int i = 0; i < sizeof(*addr); ++i)
-			fprintf(stderr, "%02x ", sha1.digest[i]);
-		fprintf(stderr, "\n");
+		fprintf(stderr, "\naddress recheck failed\n");
+		leek_crypto_der_show(der, derlen, stderr);
 		funlockfile(stderr);
 		goto out;
 	}

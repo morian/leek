@@ -27,9 +27,9 @@
 /* This value ensures that our exponent will always be 4 bytes wide
  * We may consider starting at RSA_F4 instead and handle 3 bytes exponent. */
 # define LEEK_RSA_E_SIZE                 4 /* bytes */
-# define LEEK_RSA_E_START       0x01000001
+# define LEEK_RSA_E_START       0x00800001
 /* This limit allows for 8 parallel computations */
-# define LEEK_RSA_E_LIMIT       0xFFFFFFF9
+# define LEEK_RSA_E_LIMIT       0x7FFFFFF9
 
 
 /* Holds the crypto stuff we need in workers */

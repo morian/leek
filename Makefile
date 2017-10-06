@@ -1,4 +1,4 @@
-CFLAGS    := -std=gnu11 -pipe -O2 -ggdb                \
+CFLAGS    := -std=gnu11 -pipe -O3                      \
              -Wall -Werror -Wextra -Wshadow -Wformat=2 \
              -Wnested-externs -Wchar-subscripts -Wpointer-arith
 LDLIBS    := -lm -lssl -lcrypto

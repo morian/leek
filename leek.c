@@ -513,7 +513,8 @@ static uint64_t leek_metric_estimate_get(uint64_t hash_count, uint64_t elapsed,
 	long double tgt_time_f;
 	uint64_t tgt_time = 0;
 
-	tgt_time_f = (elapsed * logl(1 - tgt_probability) / logl(1 - leek.prefixes->prob_find_1)) / hash_count;
+	tgt_time_f =
+		(elapsed * logl(1 - (tgt_probability / 100)) / logl(1 - leek.prefixes->prob_find_1)) / hash_count;
 	tgt_time = tgt_time_f;
 	return tgt_time;
 }
@@ -527,7 +528,7 @@ static void leek_metric_display(void)
 	uint64_t hash_diff = leek_hashcount_update();
 	uint64_t time_diff = leek_clock_update(); /* usecs */
 	uint64_t elapsed = leek_clock_elapsed(); /* msecs */
-	uint64_t time95;
+	uint64_t time_prc;
 	unsigned char hash_rate_unit, hash_total_unit;
 	double hash_rate_raw, hash_total_raw;
 	double hash_rate, hash_total;
@@ -548,16 +549,20 @@ static void leek_metric_display(void)
 	       hash_total, hash_total_unit);
 
 	if (leek.last_hash_count) {
-		time95 = leek_metric_estimate_get(leek.last_hash_count, elapsed, 0.95);
-		leek_metric_timer_display("   T(95%):", time95);
-		prob_found = 100.0 * (1.0 -  powl(1.0 - leek.prefixes->prob_find_1, leek.last_hash_count));
+		time_prc = leek_metric_estimate_get(leek.last_hash_count, elapsed, 50);
+		leek_metric_timer_display("   T(avg):", time_prc);
 	}
 
 	leek_metric_timer_display("   Elapsed:", elapsed);
 
-	if (leek.last_hash_count)
-		/* Probability to already find a result. */
+	if (leek.last_hash_count && !leek.found_hash_count) {
+		prob_found = 100.0 * (1.0 -  powl(1.0 - leek.prefixes->prob_find_1, leek.last_hash_count));
+
+		/* Probability to already have a result. */
 		printf(" (%6.2Lf%%)", prob_found);
+	}
+	else if (leek.error_hash_count)
+		printf("   ERR:%u", leek.error_hash_count);
 
 	fflush(stdout);
 
