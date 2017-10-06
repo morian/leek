@@ -1,5 +1,4 @@
-#define _POSIX_C_SOURCE 199309L
-#define _DEFAULT_SOURCE 1
+#define _XOPEN_SOURCE   500
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
