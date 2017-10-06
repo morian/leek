@@ -456,6 +456,7 @@ out:
 
 lp_free:
 	free(lp);
+	ret = -1;
 	goto out;
 }
 
