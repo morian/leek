@@ -11,6 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <openssl/crypto.h>
 #include <openssl/err.h>
 
 #include "leek_cpu.h"
@@ -201,6 +202,18 @@ out:
 }
 
 
+static void leek_exit_locks(void)
+{
+	CRYPTO_set_locking_callback(NULL);
+
+	for(int i = 0; i < CRYPTO_num_locks(); ++i)
+		pthread_mutex_destroy(&leek.openssl_locks[i]);
+
+	OPENSSL_free(leek.openssl_locks);
+	leek.openssl_locks = NULL;
+}
+
+
 static void leek_exit(void)
 {
 	if (leek.prefixes) {
@@ -211,6 +224,8 @@ static void leek_exit(void)
 		free(leek.worker);
 		leek.worker = NULL;
 	}
+
+	leek_exit_locks();
 }
 
 
@@ -306,6 +321,36 @@ static int leek_worker_join(void)
 }
 
 
+static void leek_lock_callback(int mode, int type, const char *file, int line)
+{
+	if(mode & CRYPTO_LOCK)
+		pthread_mutex_lock(&leek.openssl_locks[type]);
+	else
+		pthread_mutex_unlock(&leek.openssl_locks[type]);
+
+	(void) file;
+	(void) line;
+}
+
+
+static unsigned long leek_thread_id(void)
+{
+	return pthread_self();
+}
+
+
+static void leek_init_locks(void)
+{
+	leek.openssl_locks = OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+
+	for(int i = 0; i < CRYPTO_num_locks(); ++i)
+		pthread_mutex_init(&leek.openssl_locks[i], NULL);
+
+	CRYPTO_set_id_callback(leek_thread_id);
+	CRYPTO_set_locking_callback(leek_lock_callback);
+}
+
+
 static int leek_init(void)
 {
 	struct leek_prefixes *lp;
@@ -321,6 +366,9 @@ static int leek_init(void)
 	printf("|   |_______ \\/_______  //_______  /|____|__ \\   |\n");
 	printf("|           \\/        \\/         \\/  %6s \\/   |\n", LEEK_CPU_VERSION);
 	printf(".________________________________________________.\n\n");
+
+	/* OpenSSL locks allocation (required in MT environment) */
+	leek_init_locks();
 
 	lp = leek_readfile(leek.config.input_path, leek.config.len_min, leek.config.len_max);
 	if (!lp)

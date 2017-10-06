@@ -58,6 +58,9 @@ struct leek_context {
 		unsigned int flags;        /* See enum bellow */
 	} config;
 
+	/* Locks provided to OpenSSL */
+	pthread_mutex_t *openssl_locks;
+
 	/* Tree of loaded prefixes from input file. */
 	struct leek_prefixes *prefixes;
 	struct leek_worker *worker;
