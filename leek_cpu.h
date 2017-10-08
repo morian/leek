@@ -29,7 +29,9 @@
 # define LEEK_RSA_E_SIZE                 4 /* bytes */
 # define LEEK_RSA_E_START       0x00800001
 /* This limit allows for 8 parallel computations */
-# define LEEK_RSA_E_LIMIT       0x7FFFFFF9
+# define LEEK_RSA_E_LIMIT       0x7FFFFFFF
+/* For functions or variables that can be unused */
+# define __unused                __attribute__((unused))
 
 
 /* Holds the crypto stuff we need in workers */
@@ -97,8 +99,7 @@ int leek_address_check(struct leek_crypto *lc, unsigned int e,
 void leek_result_display(RSA *rsa, uint32_t e, int length,
                          const union leek_rawaddr *addr);
 
-/* SHA1 unit interface */
-void leek_sha1_init(struct leek_crypto *lc);
-void leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len);
+/* SHA1 unit initialization with DER data */
+int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len);
 
 #endif /* !__LEEK_CPU_H */

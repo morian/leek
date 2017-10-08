@@ -7,13 +7,14 @@
 # define LEEK_RAWADDR_LEN        10
 # define LEEK_BUCKETS            (1 << 16)
 # define LEEK_BUCKETS_INC        8
+# define __packed                __attribute__((packed))
 
 union leek_rawaddr {
 	uint8_t buffer[LEEK_RAWADDR_LEN];
 	struct {
 		uint16_t index;
 		uint64_t suffix;
-	} __attribute__((packed));
+	} __packed;
 };
 
 

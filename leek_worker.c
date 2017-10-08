@@ -114,10 +114,11 @@ static int leek_crypto_rsa_rekey(struct leek_crypto *lc)
 
 	if (lc->rsa)
 		RSA_free(lc->rsa);
-	lc->rsa = rsa;
 
-	leek_sha1_init(lc);
-	leek_sha1_precalc(lc, der, derlen - LEEK_RSA_E_SIZE);
+	ret = leek_sha1_precalc(lc, der, derlen);
+	if (ret < 0)
+		goto error;
+	lc->rsa = rsa;
 
 	leek_crypto_der_show(der, derlen, stderr);
 

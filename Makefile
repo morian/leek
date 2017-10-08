@@ -1,6 +1,6 @@
-CFLAGS    := -std=gnu11 -pipe -O3                      \
+CFLAGS    := -std=gnu11 -pipe -O3 -march=native        \
              -Wall -Werror -Wextra -Wshadow -Wformat=2 \
-             -Wnested-externs -Wchar-subscripts -Wpointer-arith
+             -Wnested-externs -Wchar-subscripts
 LDLIBS    := -lm -lssl -lcrypto
 LDFLAGS   := -pthread
 

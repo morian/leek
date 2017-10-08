@@ -2,14 +2,9 @@
 # define __LEEK_SHA1_H
 
 # if defined(__AVX2__)
-#  error "Oops, not yet implemented"
+#  include "leek_sha1_avx2.h"
 # else
-#  include <openssl/sha.h>
-
-	struct leek_sha1 {
-		SHA_CTX hash;
-	};
+#  include "leek_sha1_generic.h"
 # endif
-
 
 #endif /* !__LEEK_SHA1_H */
