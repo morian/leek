@@ -422,7 +422,8 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 
 	/* We only perform exit if we are the thread issuing the last result */
 	if (leek.config.stop_count && found_hash_count == leek.config.stop_count) {
-		printf("[>] Mess with the best die like the rest!\n");
+		if (leek.config.flags & LEEK_FLAG_VERBOSE)
+			printf("[>] Mess with the best die like the rest!\n");
 		exit(EXIT_SUCCESS);
 	}
 }

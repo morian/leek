@@ -102,4 +102,7 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 /* SHA1 unit initialization with DER data */
 int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len);
 
+/* Called once by the main thread, used to initialize static stuff */
+int leek_sha1_init(void);
+
 #endif /* !__LEEK_CPU_H */

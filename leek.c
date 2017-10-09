@@ -424,7 +424,16 @@ static int leek_init(void)
 		fprintf(stderr, "[-] error: no matching prefix in %s.\n", leek.config.input_path);
 		goto lp_free;
 	}
+
+	/* Update min and max length based on the loaded dictionary */
+	leek.config.len_min = lp->length_min;
+	leek.config.len_max = lp->length_max;
 	leek.prefixes = lp;
+
+	ret = leek_sha1_init();
+	if (ret < 0)
+		goto out;
+
 
 	if (leek.config.flags & LEEK_FLAG_VERBOSE) {
 		if (lp->length_min == lp->length_max)
@@ -433,10 +442,6 @@ static int leek_init(void)
 		else
 			printf("[+] Loaded %u valid prefixes in range %u:%u.\n",
 			       lp->word_count, lp->length_min, lp->length_max);
-
-		/* Update attack range with dictionnary content. */
-		leek.config.len_min = lp->length_min;
-		leek.config.len_max = lp->length_max;
 
 		if (lp->invalid_count || lp->duplicate_count || lp->filtered_count)
 			printf("[!] Rejected %u invalid, %u filtered and %u duplicate prefixes.\n",

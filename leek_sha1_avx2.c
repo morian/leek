@@ -19,7 +19,14 @@ static void leek_sha1_block_display(const struct leek_crypto *lc)
 #endif
 
 
-static void leek_sha1_init(struct leek_crypto *lc)
+int leek_sha1_init(void)
+{
+	if (leek.config.flags & LEEK_FLAG_VERBOSE)
+		printf("[+] Leek is using custom AVX2 implementation.\n");
+	return 0;
+}
+
+static void leek_sha1_reset(struct leek_crypto *lc)
 {
 	lc->sha1.H[0] = vec8_set(VEC_SHA1_H0);
 	lc->sha1.H[1] = vec8_set(VEC_SHA1_H1);
@@ -27,7 +34,6 @@ static void leek_sha1_init(struct leek_crypto *lc)
 	lc->sha1.H[3] = vec8_set(VEC_SHA1_H3);
 	lc->sha1.H[4] = vec8_set(VEC_SHA1_H4);
 }
-
 
 static void __hot leek_sha1_xfrm(struct leek_crypto *lc, int update)
 {
@@ -238,7 +244,7 @@ int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 	size_t rem = len;
 	int ret = -1;
 
-	leek_sha1_init(lc);
+	leek_sha1_reset(lc);
 
 	while (rem >= VEC_SHA1_BLOCK_SIZE) {
 		leek_sha1_block_update(lc, ptr);

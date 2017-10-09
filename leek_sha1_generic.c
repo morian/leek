@@ -2,6 +2,14 @@
 
 #define LEEK_SHA1_COPY_SIZE  (10 * sizeof(SHA_LONG))
 
+
+int leek_sha1_init(void)
+{
+	if (leek.config.flags & LEEK_FLAG_VERBOSE)
+		printf("[+] Leek is using OpenSSL implementation.\n");
+	return 0;
+}
+
 int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 {
 	SHA1_Init(&lc->sha1.hash);
