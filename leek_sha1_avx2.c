@@ -217,7 +217,6 @@ static void leek_sha1_block_finalize(struct leek_crypto *lc, const void *ptr,
 
 // #include <openssl/sha.h>
 static void leek_exhaust_prepare(struct leek_crypto *lc)
-// static void leek_exhaust_prepare(struct leek_crypto *lc, const void *der, size_t len)
 {
 	unsigned int expo_shift = 8 * lc->sha1.expo_pos;
 	void *ptr[2];
@@ -287,20 +286,27 @@ out:
 int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 {
 	uint32_t increment = 1 << ((8 * lc->sha1.expo_pos) + 4);
+	unsigned int iter_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> 4;
 	unsigned int outer_count;
+	unsigned int outer_init;
 	unsigned int inner_count;
+	unsigned int inner_init;
 	void *bexpo[2]; /* exponent pointer locations within the sha1 block */
 	vec8 vexpo[2];  /* current exponents words (high / low) */
 	vec8 vincr[2];  /* increments (high / low)*/
 
 	/* Handle different alignments (else clause will never happen anyway...) */
 	if (lc->sha1.expo_pos) {
-		outer_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> (8 * (4 - lc->sha1.expo_pos));
+		outer_count = (LEEK_RSA_E_LIMIT + 2U) >> (8 * (4 - lc->sha1.expo_pos));
+		outer_init = (LEEK_RSA_E_START) >> (8 * (4 - lc->sha1.expo_pos));
 		inner_count = (1ULL << (8 * (4 - lc->sha1.expo_pos) - 4));
+		inner_init = iter_count & (byte_mask(4 - lc->sha1.expo_pos) >> 4);
 	}
 	else {
 		outer_count = 1;
+		outer_init = 0;
 		inner_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> 4;
+		inner_init = LEEK_RSA_E_START >> 4;
 	}
 
 	vincr[0] = vec8_set(1);
@@ -312,13 +318,15 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 	vexpo[0] = lc->sha1.vexpo[0];
 	vexpo[1] = lc->sha1.vexpo[1];
 
+	/* Total real e checked is 3FC00000 (1.70GH):
+	 * 8 * ((outer_count - outer_init) * inner_count - inner_init) */
 
-	for (unsigned int o = 0; o < outer_count; ++o) {
+	for (unsigned int o = outer_init; o < outer_count; ++o) {
 		/* Store current and increment outer exponents (MSBs) */
 		vec8_store(bexpo[0], vec8_bswap(vexpo[0]));
 		vexpo[0] = vec8_add(vexpo[0], vincr[0]);
 
-		for (unsigned int i = 0; i < inner_count; ++i) {
+		for (unsigned int i = inner_init; i < inner_count; ++i) {
 			/* Store current and increment inner exponents (LSBs) */
 			vec8_store(bexpo[1], vec8_bswap(vexpo[1]));
 			vexpo[1] = vec8_add(vexpo[1], vincr[1]);
@@ -336,8 +344,7 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 				length = leek_lookup(result);
 				if (length) {
 					/* What's my e again? */
-					uint32_t e = LEEK_RSA_E_START + 16 * (o * inner_count + i) + 2 * r;
-
+					uint32_t e = 16 * (o * inner_count + i) + 2 * r + 1;
 					ret = leek_address_check(lc, e, result);
 					if (ret < 0)
 						__sync_add_and_fetch(&leek.error_hash_count, 1);
@@ -347,6 +354,7 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 			}
 
 			wk->hash_count += 8;
+			inner_init = 0;
 		}
 	}
 

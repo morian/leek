@@ -135,6 +135,8 @@ static inline vec8 vec8_bswap(vec8 x)
 		b = vec8_ror(b, 2);                                             \
 	} while (0)
 
+#define byte_mask(x)  ((1 << (8 * (x))) - 1)
+
 
 union vec_rawaddr {
 	uint8_t buffer[VEC_RAWADDR_LEN];
