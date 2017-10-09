@@ -411,8 +411,10 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 
 		if (leek.config.output_path)
 			leek_result_write(onion_address, prv_output, buffer->length);
-		else
-			printf("%s\n", prv_output);
+		else {
+			fwrite_unlocked(prv_output, buffer->length, 1, stdout);
+			putchar_unlocked('\n');
+		}
 		funlockfile(stdout);
 	}
 

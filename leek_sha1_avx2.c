@@ -354,8 +354,9 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 			}
 
 			wk->hash_count += 8;
-			inner_init = 0;
 		}
+
+		inner_init = 0;
 	}
 
 	return 0;
