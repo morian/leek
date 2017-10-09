@@ -1,5 +1,8 @@
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
@@ -351,7 +354,8 @@ static void leek_result_write(const uint8_t *onion, const uint8_t *prv_key,
 {
 	size_t result_path_sz;
 	char *result_path;
-	FILE *fp;
+	int ret;
+	int fd;
 
 	result_path_sz = strlen(leek.config.output_path) + LEEK_ADDRESS_LEN
 	                 + strlen(".onion.key") + 2;
@@ -360,14 +364,16 @@ static void leek_result_write(const uint8_t *onion, const uint8_t *prv_key,
 	snprintf(result_path, result_path_sz, "%s/%.16s.onion.key",
 	         leek.config.output_path, onion);
 
-	fp = fopen(result_path, "w");
-	if (!fp) {
-		fprintf(stderr, "[-] fopen: %s\n", strerror(errno));
+	fd = open(result_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0) {
+		fprintf(stderr, "[-] open failed: %s\n", strerror(errno));
 		return;
 	}
 
-	fwrite(prv_key, prv_len, 1, fp);
-	fclose(fp);
+	ret = write(fd, prv_key, prv_len);
+	if (ret < 0)
+		fprintf(stderr, "[-] write failed: %s\n", strerror(errno));
+	close(fd);
 }
 
 

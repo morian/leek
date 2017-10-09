@@ -375,7 +375,7 @@ static int leek_init_outdir(void)
 			goto out;
 		}
 
-		ret = mkdir(leek.config.output_path, 0x600);
+		ret = mkdir(leek.config.output_path, 0700);
 		if (ret < 0) {
 			fprintf(stderr, "[-] mkdir: %s\n", strerror(errno));
 			goto out;
