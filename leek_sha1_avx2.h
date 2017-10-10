@@ -125,13 +125,28 @@ static inline vec8 vec8_bswap(vec8 x)
 
 #define vec8_W(x)   W[(x) & 15]         /* W is our internal working buffer name */
 #define vec8_SRC(x) vec8_bswap(in[x])   /* in is our input data name */
+#define vec8_EXP(x) vexpo[(x) - 2]      /* vexpo is our input vector */
+#define vec8_END(x) vsize               /* vector of the last input word (hash size) */
 #define vec8_MIX(x) vec8_rol(vec8_xor4(vec8_W(x + 13), vec8_W(x + 8), vec8_W(x + 2), vec8_W(x)), 1)
+
+/* sub-mixes with known values */
+#define vec8_MX0(x) vec8_zero()
+/* TODO */
+#define vec8_MX7(x) vec8_MIX(x)
 
 #define vec8_ROUND(f, s, x, a, b, c, d, e, k)                       \
 	do{                                                               \
 		vec8 tmp = s(x);                                                \
 		vec8_W(x) = tmp;                                                \
 		e = vec8_add5(e, tmp, vec8_rol(a, 5), f(b, c, d), vec8_set(k)); \
+		b = vec8_ror(b, 2);                                             \
+	} while (0)
+
+/* When loading empty data words (0) */
+#define vec8_ROUND_E(f, x, a, b, c, d, e, k)                        \
+	do{                                                               \
+		vec8_W(x) = vec8_zero();                                        \
+		e = vec8_add4(e, vec8_rol(a, 5), f(b, c, d), vec8_set(k));      \
 		b = vec8_ror(b, 2);                                             \
 	} while (0)
 
@@ -159,6 +174,10 @@ struct leek_sha1 {
 	vec8 vexpo[2];
 
 	vec8 H[5]; /* Updated hash states */
+
+	/* Precomputed values */
+	vec8 PH[5]; /* Values a, b, c, d, e */
+	vec8 PW[3]; /* Two first static hash words + size word */
 
 	/* Final resulting addresses (hashes) */
 	union vec_rawaddr R[8];

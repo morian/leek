@@ -1,6 +1,5 @@
 #include <stdint.h>
 
-
 #ifdef DEBUG
 static void leek_sha1_block_display(const struct leek_crypto *lc)
 {
@@ -35,7 +34,8 @@ static void leek_sha1_reset(struct leek_crypto *lc)
 	lc->sha1.H[4] = vec8_set(VEC_SHA1_H4);
 }
 
-static void __hot leek_sha1_xfrm(struct leek_crypto *lc, int update)
+/* Generic hash function (used for the first blocks) */
+static void leek_sha1_update(struct leek_crypto *lc)
 {
 	const vec8 *in = (const vec8 *) lc->sha1.block;
 	vec8 W[16];
@@ -131,39 +131,162 @@ static void __hot leek_sha1_xfrm(struct leek_crypto *lc, int update)
 	vec8_ROUND(vec8_F4, vec8_MIX, 78, c, d, e, a, b, VEC_SHA1_K4);
 	vec8_ROUND(vec8_F4, vec8_MIX, 79, b, c, d, e, a, VEC_SHA1_K4);
 
-	if (update) {
-		lc->sha1.H[0] = vec8_add(a, lc->sha1.H[0]);
-		lc->sha1.H[1] = vec8_add(b, lc->sha1.H[1]);
-		lc->sha1.H[2] = vec8_add(c, lc->sha1.H[2]);
-		lc->sha1.H[3] = vec8_add(d, lc->sha1.H[3]);
-		lc->sha1.H[4] = vec8_add(e, lc->sha1.H[4]);
-	}
-	else {
-		/* We keep the first 3 words (12B) as we only need 10B */
-		a = vec8_add(a, lc->sha1.H[0]);
-		b = vec8_add(b, lc->sha1.H[1]);
-		c = vec8_add(c, lc->sha1.H[2]);
-		d = vec8_zero();
-
-		vec8_transpose_8x32(a, b, c, d);
-
-		vec8_store((void *) &lc->sha1.R[0], vec8_bswap(a));
-		vec8_store((void *) &lc->sha1.R[2], vec8_bswap(b));
-		vec8_store((void *) &lc->sha1.R[4], vec8_bswap(c));
-		vec8_store((void *) &lc->sha1.R[6], vec8_bswap(d));
-	}
+	lc->sha1.H[0] = vec8_add(a, lc->sha1.H[0]);
+	lc->sha1.H[1] = vec8_add(b, lc->sha1.H[1]);
+	lc->sha1.H[2] = vec8_add(c, lc->sha1.H[2]);
+	lc->sha1.H[3] = vec8_add(d, lc->sha1.H[3]);
+	lc->sha1.H[4] = vec8_add(e, lc->sha1.H[4]);
 }
 
-static inline void leek_sha1_finalize(struct leek_crypto *lc)
+static void leek_exhaust_prepare_rounds(struct leek_crypto *lc)
 {
-	/* Perform the last and store result in F */
-	leek_sha1_xfrm(lc, 0);
+	const vec8 *in = (const vec8 *) lc->sha1.block;
+	vec8 a, b, c, d, e;
+	vec8 W[16];
+
+	a = lc->sha1.H[0];
+	b = lc->sha1.H[1];
+	c = lc->sha1.H[2];
+	d = lc->sha1.H[3];
+	e = lc->sha1.H[4];
+
+	/* Pre-compute the first two rounds here (static data) */
+	vec8_ROUND(vec8_F1, vec8_SRC,  0, a, b, c, d, e, VEC_SHA1_K1);
+	vec8_ROUND(vec8_F1, vec8_SRC,  1, e, a, b, c, d, VEC_SHA1_K1);
+
+	/* Store our current state(s) */
+	lc->sha1.PW[0] = W[0];         /* 1st static word */
+	lc->sha1.PW[1] = W[1];         /* 2nd static word */
+	lc->sha1.PW[2] = vec8_SRC(15); /* hash size words */
+
+	lc->sha1.PH[0] = a;
+	lc->sha1.PH[1] = b;
+	lc->sha1.PH[2] = c;
+	lc->sha1.PH[3] = d;
+	lc->sha1.PH[4] = e;
 }
 
-static inline void leek_sha1_update(struct leek_crypto *lc)
+/* Customized hash function (final block) */
+static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo[2])
 {
-	/* Perform a full update */
-	leek_sha1_xfrm(lc, 1);
+	vec8 a, b, c, d, e;
+	vec8 W[16];
+	vec8 vsize;
+
+	/* TODO:
+	 * - simplify xor operations relying on zero's (vec8_MIX)
+	 * - simplify some unused 'd' and 'e' values on the last round(s)
+	 *   => By hand (?)
+	 **/
+
+	a = lc->sha1.PH[0];
+	b = lc->sha1.PH[1];
+	c = lc->sha1.PH[2];
+	d = lc->sha1.PH[3];
+	e = lc->sha1.PH[4];
+
+	/* Load pre-computed data */
+	vsize = lc->sha1.PW[2];
+
+	W[0] = lc->sha1.PW[0];
+	W[1] = lc->sha1.PW[1];
+
+	vec8_ROUND(vec8_F1, vec8_EXP,  2, d, e, a, b, c, VEC_SHA1_K1);
+	vec8_ROUND(vec8_F1, vec8_EXP,  3, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,          4, b, c, d, e, a, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,          5, a, b, c, d, e, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,          6, e, a, b, c, d, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,          7, d, e, a, b, c, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,          8, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,          9, b, c, d, e, a, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,         10, a, b, c, d, e, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,         11, e, a, b, c, d, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,         12, d, e, a, b, c, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,         13, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,         14, b, c, d, e, a, VEC_SHA1_K1);
+	vec8_ROUND(vec8_F1, vec8_END, 15, a, b, c, d, e, VEC_SHA1_K1);
+
+	vec8_ROUND(vec8_F1, vec8_MIX, 16, e, a, b, c, d, VEC_SHA1_K1);
+	vec8_ROUND(vec8_F1, vec8_MIX, 17, d, e, a, b, c, VEC_SHA1_K1);
+	vec8_ROUND(vec8_F1, vec8_MIX, 18, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND(vec8_F1, vec8_MIX, 19, b, c, d, e, a, VEC_SHA1_K1);
+
+	vec8_ROUND(vec8_F2, vec8_MIX, 20, a, b, c, d, e, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 21, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 22, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 23, c, d, e, a, b, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 24, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 25, a, b, c, d, e, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 26, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 27, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 28, c, d, e, a, b, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 29, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 30, a, b, c, d, e, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 31, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 32, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 33, c, d, e, a, b, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 34, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 35, a, b, c, d, e, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 36, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 37, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 38, c, d, e, a, b, VEC_SHA1_K2);
+	vec8_ROUND(vec8_F2, vec8_MIX, 39, b, c, d, e, a, VEC_SHA1_K2);
+
+	vec8_ROUND(vec8_F3, vec8_MIX, 40, a, b, c, d, e, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 41, e, a, b, c, d, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 42, d, e, a, b, c, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 43, c, d, e, a, b, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 44, b, c, d, e, a, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 45, a, b, c, d, e, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 46, e, a, b, c, d, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 47, d, e, a, b, c, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 48, c, d, e, a, b, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 49, b, c, d, e, a, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 50, a, b, c, d, e, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 51, e, a, b, c, d, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 52, d, e, a, b, c, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 53, c, d, e, a, b, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 54, b, c, d, e, a, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 55, a, b, c, d, e, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 56, e, a, b, c, d, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 57, d, e, a, b, c, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 58, c, d, e, a, b, VEC_SHA1_K3);
+	vec8_ROUND(vec8_F3, vec8_MIX, 59, b, c, d, e, a, VEC_SHA1_K3);
+
+	vec8_ROUND(vec8_F4, vec8_MIX, 60, a, b, c, d, e, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 61, e, a, b, c, d, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 62, d, e, a, b, c, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 63, c, d, e, a, b, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 64, b, c, d, e, a, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 65, a, b, c, d, e, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 66, e, a, b, c, d, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 67, d, e, a, b, c, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 68, c, d, e, a, b, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 69, b, c, d, e, a, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 70, a, b, c, d, e, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 71, e, a, b, c, d, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 72, d, e, a, b, c, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 73, c, d, e, a, b, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 74, b, c, d, e, a, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 75, a, b, c, d, e, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 76, e, a, b, c, d, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 77, d, e, a, b, c, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 78, c, d, e, a, b, VEC_SHA1_K4);
+	vec8_ROUND(vec8_F4, vec8_MIX, 79, b, c, d, e, a, VEC_SHA1_K4);
+
+
+	/* We keep the first 3 words (12B) as we only need 10B */
+	a = vec8_add(a, lc->sha1.H[0]);
+	b = vec8_add(b, lc->sha1.H[1]);
+	c = vec8_add(c, lc->sha1.H[2]);
+
+	/* Here 'd' will contain garbage we won't read anyway */
+	vec8_transpose_8x32(a, b, c, d);
+
+	vec8_store((void *) &lc->sha1.R[0], vec8_bswap(a));
+	vec8_store((void *) &lc->sha1.R[2], vec8_bswap(b));
+	vec8_store((void *) &lc->sha1.R[4], vec8_bswap(c));
+	vec8_store((void *) &lc->sha1.R[6], vec8_bswap(d));
 }
 
 
@@ -215,7 +338,6 @@ static void leek_sha1_block_finalize(struct leek_crypto *lc, const void *ptr,
 }
 
 
-// #include <openssl/sha.h>
 static void leek_exhaust_prepare(struct leek_crypto *lc)
 {
 	unsigned int expo_shift = 8 * lc->sha1.expo_pos;
@@ -276,6 +398,7 @@ int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 	 **/
 	leek_sha1_block_finalize(lc, ptr, len);
 	leek_exhaust_prepare(lc);
+	leek_exhaust_prepare_rounds(lc);
 
 	ret = 0;
 out:
@@ -291,7 +414,6 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 	unsigned int outer_init;
 	unsigned int inner_count;
 	unsigned int inner_init;
-	void *bexpo[2]; /* exponent pointer locations within the sha1 block */
 	vec8 vexpo[2];  /* current exponents words (high / low) */
 	vec8 vincr[2];  /* increments (high / low)*/
 
@@ -312,9 +434,6 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 	vincr[0] = vec8_set(1);
 	vincr[1] = vec8_set(increment);
 
-	bexpo[0] = &lc->sha1.block[32 * (lc->sha1.expo_round + 0)];
-	bexpo[1] = &lc->sha1.block[32 * (lc->sha1.expo_round + 1)];
-
 	vexpo[0] = lc->sha1.vexpo[0];
 	vexpo[1] = lc->sha1.vexpo[1];
 
@@ -322,16 +441,8 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 	 * 8 * ((outer_count - outer_init) * inner_count - inner_init) */
 
 	for (unsigned int o = outer_init; o < outer_count; ++o) {
-		/* Store current and increment outer exponents (MSBs) */
-		vec8_store(bexpo[0], vec8_bswap(vexpo[0]));
-		vexpo[0] = vec8_add(vexpo[0], vincr[0]);
-
 		for (unsigned int i = inner_init; i < inner_count; ++i) {
-			/* Store current and increment inner exponents (LSBs) */
-			vec8_store(bexpo[1], vec8_bswap(vexpo[1]));
-			vexpo[1] = vec8_add(vexpo[1], vincr[1]);
-
-			leek_sha1_finalize(lc);
+			leek_sha1_finalize(lc, vexpo);
 
 			/* Check results for all AVX2 lanes here */
 			for (int r = 0; r < 8; ++r) {
@@ -353,9 +464,11 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 				}
 			}
 
+			vexpo[1] = vec8_add(vexpo[1], vincr[1]);
 			wk->hash_count += 8;
 		}
 
+		vexpo[0] = vec8_add(vexpo[0], vincr[0]);
 		inner_init = 0;
 	}
 
