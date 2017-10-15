@@ -21,14 +21,15 @@ struct leek_context leek;
 
 
 static struct option leek_long_options[] = {
-	{"input",    1, 0, 'i'},
-	{"outdir",   1, 0, 'o'},
-	{"length",   1, 0, 'l'},
-	{"key-size", 1, 0, 'k'},
-	{"threads",  1, 0, 't'},
-	{"stop",     2, 0, 's'},
-	{"verbose",  0, 0, 'v'},
-	{"help",     0, 0, 'h'},
+	{"input",     1, 0, 'i'},
+	{"outdir",    1, 0, 'o'},
+	{"length",    1, 0, 'l'},
+	{"key-size",  1, 0, 'k'},
+	{"benchmark", 0, 0, 'b'},
+	{"threads",   1, 0, 't'},
+	{"stop",      2, 0, 's'},
+	{"verbose",   0, 0, 'v'},
+	{"help",      0, 0, 'h'},
 	{NULL, 0, 0, 0},
 };
 
@@ -41,7 +42,6 @@ static void leek_usage(FILE *fp, const char *prog_name)
 	fprintf(fp, " -o, --output       output file directory (default prints on stdout).\n");
 	fprintf(fp, " -l, --length=N:M   length range filter [%u-%u].\n",
 	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
-	fprintf(fp, " -k, --key-size     RSA key size (default is 1024).\n");
 	fprintf(fp, " -t, --threads=#    number of threads to start (default is 1).\n");
 	fprintf(fp, " -s, --stop(=1)     stop processing after # success (default is infinite).\n");
 	fprintf(fp, " -v, --verbose      show verbose run information.\n");
@@ -96,7 +96,7 @@ static int leek_options_parse(int argc, char *argv[])
 		unsigned long val;
 		int c;
 
-		c = getopt_long(argc, argv, "l:i:o:k:t:s::vh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:i:o:k:bt:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -147,6 +147,10 @@ static int leek_options_parse(int argc, char *argv[])
 					}
 					leek.config.stop_count = val;
 				}
+				break;
+
+			case 'b':
+				leek.config.flags |= LEEK_FLAG_BENCHMARK;
 				break;
 
 			case 'v':
@@ -539,7 +543,12 @@ static void leek_metric_display(void)
 	double hash_rate, hash_total;
 	long double prob_found;
 
-	hash_rate_raw = (1000000.0 * hash_diff) / time_diff;
+	/* On benchmark configuration we show the overall hash/rate */
+	if (leek.config.flags & LEEK_FLAG_BENCHMARK)
+		hash_rate_raw = (1000.0 * leek.last_hash_count) / elapsed;
+	else
+		hash_rate_raw = (1000000.0 * hash_diff) / time_diff;
+
 	leek_metric_humanize(hash_rate_raw, &hash_rate, &hash_rate_unit);
 
 	hash_total_raw = leek.last_hash_count;

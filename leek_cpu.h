@@ -84,8 +84,9 @@ struct leek_context {
 
 /* Enumeration of individual flags from configuration */
 enum {
-	LEEK_FLAG_VERBOSE = (1 << 0), /* Run in verbose mode */
-	LEEK_FLAG_STOP    = (1 << 1), /* Stop after a single success */
+	LEEK_FLAG_VERBOSE   = (1 << 0),  /* Run in verbose mode */
+	LEEK_FLAG_STOP      = (1 << 1),  /* Stop after a single success */
+	LEEK_FLAG_BENCHMARK = (1 << 2),  /* Show overall hashrate instead of local */
 };
 
 
