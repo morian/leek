@@ -140,8 +140,7 @@ static inline vec8 vec8_bswap(vec8 x)
 
 
 /** Optimized rounds **/
-#define vec8_EXP(x) vexpo[(x) - 2]      /* vexpo is our input vector */
-#define vec8_END(x) vsize               /* vector of the last input word (hash size) */
+#define vec8_LDW(x) W[(x)]              /* Load pre-computed word */
 
 #define vec8_MX1(x) vec8_rol(         (W[(x)-3]                                ), 1)
 #define vec8_MX3(x) vec8_rol(vec8_xor2(W[(x)-3], W[(x)-8]                      ), 1)
@@ -160,7 +159,7 @@ static inline vec8 vec8_bswap(vec8 x)
 		b = vec8_ror(b, 2);                                             \
 	} while (0)
 
-/* Final rounds (no store) */
+/* Final rounds / no store */
 #define vec8_ROUND_F(f, s, x, a, b, c, d, e, k)                     \
 	do{                                                               \
 		vec8 tmp = s(x);                                                \
@@ -168,7 +167,7 @@ static inline vec8 vec8_bswap(vec8 x)
 		b = vec8_ror(b, 2);                                             \
 	} while (0)
 
-/* When loading empty data words (0) */
+/* NULL data / no load & store */
 #define vec8_ROUND_E(f, x, a, b, c, d, e, k)                        \
 	do{                                                               \
 		e = vec8_add4(e, vec8_rol(a, 5), f(b, c, d), vec8_set(k));      \
@@ -203,10 +202,21 @@ struct leek_sha1 {
 	/* Base exponent snapshot (little-endian, High, Low) */
 	vec8 vexpo[2];
 
-
-	/* Precomputed values (very used buffer, put it on a new cache line) */
+	/* Pre-computed values (post stage 1) */
 	vec8 __cache_align PH[5]; /* Values a, b, c, d, e */
-	vec8               PW[3]; /* Two first static hash words + size word */
+
+	/* Pre-computed values (post stage 2) */
+	vec8               PH_C;  /**/
+	vec8               PH_E;
+
+	vec8 PW_C00; /* Static word 0 */
+	vec8 PW_C01; /* Sttati word 1 */
+	vec8 PW_C02; /* Nearly static word 2 (upper exponent) */
+	vec8 PW_C15; /* W word for cycle 15 (hash size) */
+	vec8 PW_C16; /* W word for cycle 16 */
+	vec8 PW_C18; /* W word for cycle 18 */
+	vec8 PW_C21; /* W word for cycle 21 */
+	vec8 PW_C24; /* W word for cycle 24 */
 
 	/* Final resulting addresses (hashes) */
 	union vec_rawaddr  R[8];

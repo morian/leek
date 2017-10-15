@@ -138,11 +138,12 @@ static void leek_sha1_update(struct leek_crypto *lc)
 	lc->sha1.H[4] = vec8_add(e, lc->sha1.H[4]);
 }
 
-static void leek_exhaust_prepare_rounds(struct leek_crypto *lc)
+/* Stage1: pre-compute all-time fixed values */
+static void leek_exhaust_precalc_1(struct leek_crypto *lc)
 {
 	const vec8 *in = (const vec8 *) lc->sha1.block;
 	vec8 a, b, c, d, e;
-	vec8 W[16];
+	vec8 W[2];
 
 	a = lc->sha1.H[0];
 	b = lc->sha1.H[1];
@@ -155,9 +156,10 @@ static void leek_exhaust_prepare_rounds(struct leek_crypto *lc)
 	vec8_ROUND(vec8_F1, vec8_SRC,  1, e, a, b, c, d, VEC_SHA1_K1);
 
 	/* Store our current state(s) */
-	lc->sha1.PW[0] = W[0];         /* 1st static word */
-	lc->sha1.PW[1] = W[1];         /* 2nd static word */
-	lc->sha1.PW[2] = vec8_SRC(15); /* hash size words */
+	lc->sha1.PW_C00 = W[0];         /* 1st static word */
+	lc->sha1.PW_C01 = W[1];         /* 2nd static word */
+
+	lc->sha1.PW_C15 = vec8_SRC(15);
 
 	lc->sha1.PH[0] = a;
 	lc->sha1.PH[1] = b;
@@ -166,12 +168,10 @@ static void leek_exhaust_prepare_rounds(struct leek_crypto *lc)
 	lc->sha1.PH[4] = e;
 }
 
-/* Customized hash function (final block) */
-static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo[2])
+
+static void leek_exhaust_precalc_2(struct leek_crypto *lc, vec8 vexpo_0)
 {
 	vec8 a, b, c, d, e;
-	vec8 W[77]; /* 80 cycles minus the last 3 ones */
-	vec8 vsize;
 
 	a = lc->sha1.PH[0];
 	b = lc->sha1.PH[1];
@@ -179,14 +179,45 @@ static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo[2])
 	d = lc->sha1.PH[3];
 	e = lc->sha1.PH[4];
 
+	/* This is round 2 pre-pre-computation */
+	c = vec8_add5(c, vexpo_0, vec8_rol(d, 5), vec8_F1(e, a, b), vec8_set(VEC_SHA1_K1));
+	e = vec8_ror(e, 2);
+
+	lc->sha1.PH_C = c;
+	lc->sha1.PH_E = e;
+
+	lc->sha1.PW_C02 = vexpo_0;
+	lc->sha1.PW_C16 = vec8_rol(vec8_xor(vexpo_0, lc->sha1.PW_C00), 1);
+	lc->sha1.PW_C18 = vec8_rol(vec8_xor(vexpo_0, lc->sha1.PW_C15), 1);
+	lc->sha1.PW_C21 = vec8_rol(lc->sha1.PW_C18, 1);
+	lc->sha1.PW_C24 = vec8_rol(vec8_xor(lc->sha1.PW_C16, lc->sha1.PW_C21), 1);
+}
+
+
+/* Customized hash function (final block) */
+static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo_1)
+{
+	vec8 a, b, c, d, e;
+	vec8 W[77]; /* 80 cycles minus the last 3 ones */
+
+	a = lc->sha1.PH[0];
+	b = lc->sha1.PH[1];
+	c = lc->sha1.PH_C;
+	d = lc->sha1.PH[3];
+	e = lc->sha1.PH_E;
+
 	/* Load pre-computed data */
-	vsize = lc->sha1.PW[2];
+	W[0]  = lc->sha1.PW_C00;
+	W[1]  = lc->sha1.PW_C01;
+	W[2]  = lc->sha1.PW_C02;
+	W[3]  = vexpo_1;
+	W[15] = lc->sha1.PW_C15;
+	W[16] = lc->sha1.PW_C16;
+	W[18] = lc->sha1.PW_C18;
+	W[21] = lc->sha1.PW_C21;
+	W[24] = lc->sha1.PW_C24;
 
-	W[0] = lc->sha1.PW[0];
-	W[1] = lc->sha1.PW[1];
-
-	vec8_ROUND_O(vec8_F1, vec8_EXP,  2, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND_O(vec8_F1, vec8_EXP,  3, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_F(vec8_F1, vec8_LDW,  3, c, d, e, a, b, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,            4, b, c, d, e, a, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,            5, a, b, c, d, e, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,            6, e, a, b, c, d, VEC_SHA1_K1);
@@ -198,18 +229,18 @@ static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo[2])
 	vec8_ROUND_E(vec8_F1,           12, d, e, a, b, c, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,           13, c, d, e, a, b, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,           14, b, c, d, e, a, VEC_SHA1_K1);
-	vec8_ROUND_O(vec8_F1, vec8_END, 15, a, b, c, d, e, VEC_SHA1_K1);
+	vec8_ROUND_F(vec8_F1, vec8_LDW, 15, a, b, c, d, e, VEC_SHA1_K1);
 
-	vec8_ROUND_O(vec8_F1, vec8_MXC, 16, e, a, b, c, d, VEC_SHA1_K1); /* W mostly const rol(vexpo[0] ^ W[0], 1) */
+	vec8_ROUND_F(vec8_F1, vec8_LDW, 16, e, a, b, c, d, VEC_SHA1_K1);
 	vec8_ROUND_O(vec8_F1, vec8_MXC, 17, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND_O(vec8_F1, vec8_MX9, 18, c, d, e, a, b, VEC_SHA1_K1); /* W mostly const rol(vexpo[0] ^ vsize), 1) */
+	vec8_ROUND_F(vec8_F1, vec8_LDW, 18, c, d, e, a, b, VEC_SHA1_K1);
 	vec8_ROUND_O(vec8_F1, vec8_MX9, 19, b, c, d, e, a, VEC_SHA1_K1);
 
 	vec8_ROUND_O(vec8_F2, vec8_MX1, 20, a, b, c, d, e, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MX1, 21, e, a, b, c, d, VEC_SHA1_K2); /* W mostly const rol(vexpo[0] ^ vsize), 2) */
+	vec8_ROUND_F(vec8_F2, vec8_LDW, 21, e, a, b, c, d, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX1, 22, d, e, a, b, c, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 23, c, d, e, a, b, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MX3, 24, b, c, d, e, a, VEC_SHA1_K2); /* W mostly const rol(W[x-3] ^ W[x-8], 1) */
+	vec8_ROUND_F(vec8_F2, vec8_LDW, 24, b, c, d, e, a, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 25, a, b, c, d, e, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 26, e, a, b, c, d, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 27, d, e, a, b, c, VEC_SHA1_K2);
@@ -332,28 +363,27 @@ static void leek_sha1_block_finalize(struct leek_crypto *lc, const void *ptr,
 }
 
 
+/* Prepare exponent values used by exhaust loop */
 static void leek_exhaust_prepare(struct leek_crypto *lc)
 {
 	unsigned int expo_shift = 8 * lc->sha1.expo_pos;
 	void *ptr[2];
-	vec8 expo[2];
 	vec8 adder;
 
+	/* Values added to every lane */
+	adder = vec8_shl(_mm256_set_epi32(14, 12, 10, 8, 6, 4, 2, 0), expo_shift);
+
+	/* Pointer to exponent words */
 	ptr[0] = &lc->sha1.block[32 * (lc->sha1.expo_round + 0)];
 	ptr[1] = &lc->sha1.block[32 * (lc->sha1.expo_round + 1)];
 
-	expo[0] = vec8_bswap(vec8_load(ptr[0]));
-	expo[1] = vec8_bswap(vec8_load(ptr[1]));
-
-	adder = vec8_shl(_mm256_set_epi32(14, 12, 10, 8, 6, 4, 2, 0), expo_shift);
-	expo[1] = vec8_add(expo[1], adder);
-
 	/* Store these values for use by the main exhaust loop */
-	lc->sha1.vexpo[0] = expo[0];
-	lc->sha1.vexpo[1] = expo[1];
+	lc->sha1.vexpo[0] = vec8_bswap(vec8_load(ptr[0]));
+	lc->sha1.vexpo[1] = vec8_add(vec8_bswap(vec8_load(ptr[1])), adder);
 }
 
 
+/* Stage0: pre-compute first full SHA1 blocks */
 int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 {
 	size_t rem = len;
@@ -381,18 +411,8 @@ int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 		goto out;
 	}
 
-	/* IDEAS:
-	 * - precompute internal values for the first N rounds
-	 *   (N + 1 when not touching MSBs of exponent :p, which is 94% with RSA 1024)
-	*  - A lot of block data is made of padding (zeroes), this simplifies a bit some stuff
-	*  - Byte swap can be performed upon block filling instead of being recomputed
-	*    (this also changes the way we handle exponent increments...)
-	*  - 'd' and 'e' are unused in final digest, this should help simplifying some stuff
-	*  - More ideas: https://hashcat.net/events/p12/js-sha1exp_169.pdf
-	 **/
 	leek_sha1_block_finalize(lc, ptr, len);
 	leek_exhaust_prepare(lc);
-	leek_exhaust_prepare_rounds(lc);
 
 	ret = 0;
 out:
@@ -431,12 +451,18 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 	vexpo[0] = lc->sha1.vexpo[0];
 	vexpo[1] = lc->sha1.vexpo[1];
 
-	/* Total real e checked is 3FC00000 (1.70GH):
+	/* Stage1 pre-computation */
+	leek_exhaust_precalc_1(lc);
+
+
+	/* Total real e checked is 3FC00000 (~1.70GH):
 	 * 8 * ((outer_count - outer_init) * inner_count - inner_init) */
 
 	for (unsigned int o = outer_init; o < outer_count; ++o) {
+		leek_exhaust_precalc_2(lc, vexpo[0]);
+
 		for (unsigned int i = inner_init; i < inner_count; ++i) {
-			leek_sha1_finalize(lc, vexpo);
+			leek_sha1_finalize(lc, vexpo[1]);
 
 			/* Check results for all AVX2 lanes here */
 			for (int r = 0; r < 8; ++r) {
