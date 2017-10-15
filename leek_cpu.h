@@ -23,6 +23,7 @@
 # define LEEK_KEYSIZE_MIN         (1 << 10)
 # define LEEK_KEYSIZE_MAX         (1 << 13)
 # define LEEK_MONITOR_INTERVAL          200 /* msecs */
+# define LEEK_CACHELINE_SZ               64 /* bytes */
 
 /* This value ensures that our exponent will always be 4 bytes wide
  * We may consider starting at RSA_F4 instead and handle 3 bytes exponent. */
@@ -30,15 +31,19 @@
 # define LEEK_RSA_E_START       0x00800001u
 /* This limit allows for 8 parallel computations */
 # define LEEK_RSA_E_LIMIT       0x7FFFFFFFu
+
 /* For functions or variables that can be unused */
 # define __unused                __attribute__((unused))
 
 
 /* Holds the crypto stuff we need in workers */
 struct leek_crypto {
+	/* SHA1 exhaust sub-structure */
+	struct leek_sha1 sha1;
+
+	/* RSA stuff */
 	RSA              *rsa;
 	BIGNUM           *big_e;
-	struct leek_sha1 sha1;
 };
 
 /* Holds worker related information */

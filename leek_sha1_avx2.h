@@ -115,7 +115,8 @@ static inline vec8 vec8_bswap(vec8 x)
 #define vec8_add3(a, ...) vec8_add(a, vec8_add(__VA_ARGS__))
 #define vec8_add4(a, ...) vec8_add(a, vec8_add3(__VA_ARGS__))
 #define vec8_add5(a, ...) vec8_add(a, vec8_add4(__VA_ARGS__))
-#define vec8_xor3(a, ...) vec8_xor(a, vec8_xor(__VA_ARGS__))
+#define vec8_xor2(a, ...) vec8_xor(a, __VA_ARGS__)
+#define vec8_xor3(a, ...) vec8_xor(a, vec8_xor2(__VA_ARGS__))
 #define vec8_xor4(a, ...) vec8_xor(a, vec8_xor3(__VA_ARGS__))
 
 #define vec8_F1(x, y, z) vec8_or(vec8_and(x, y), vec8_anot(x, z))
@@ -123,16 +124,11 @@ static inline vec8 vec8_bswap(vec8 x)
 #define vec8_F3(x, y, z) vec8_or(vec8_and(x, y), vec8_and(z, vec8_xor(x, y)))
 #define vec8_F4(x, y, z) vec8_xor3(x, y, z)
 
+
+/** Original round **/
 #define vec8_W(x)   W[(x) & 15]         /* W is our internal working buffer name */
 #define vec8_SRC(x) vec8_bswap(in[x])   /* in is our input data name */
-#define vec8_EXP(x) vexpo[(x) - 2]      /* vexpo is our input vector */
-#define vec8_END(x) vsize               /* vector of the last input word (hash size) */
 #define vec8_MIX(x) vec8_rol(vec8_xor4(vec8_W(x + 13), vec8_W(x + 8), vec8_W(x + 2), vec8_W(x)), 1)
-
-/* sub-mixes with known values */
-#define vec8_MX0(x) vec8_zero()
-/* TODO */
-#define vec8_MX7(x) vec8_MIX(x)
 
 #define vec8_ROUND(f, s, x, a, b, c, d, e, k)                       \
 	do{                                                               \
@@ -142,26 +138,57 @@ static inline vec8 vec8_bswap(vec8 x)
 		b = vec8_ror(b, 2);                                             \
 	} while (0)
 
+
+/** Optimized rounds **/
+#define vec8_EXP(x) vexpo[(x) - 2]      /* vexpo is our input vector */
+#define vec8_END(x) vsize               /* vector of the last input word (hash size) */
+
+#define vec8_MX1(x) vec8_rol(         (W[(x)-3]                                ), 1)
+#define vec8_MX3(x) vec8_rol(vec8_xor2(W[(x)-3], W[(x)-8]                      ), 1)
+#define vec8_MX7(x) vec8_rol(vec8_xor3(W[(x)-3], W[(x)-8], W[(x)-14]           ), 1)
+#define vec8_MX9(x) vec8_rol(vec8_xor2(W[(x)-3],                      W[(x)-16]), 1)
+#define vec8_MXC(x) vec8_rol(vec8_xor2(                    W[(x)-14], W[(x)-16]), 1)
+#define vec8_MXF(x) vec8_rol(vec8_xor4(W[(x)-3], W[(x)-8], W[(x)-14], W[(x)-16]), 1)
+
+
+/* Optimized general round */
+#define vec8_ROUND_O(f, s, x, a, b, c, d, e, k)                     \
+	do{                                                               \
+		vec8 tmp = s(x);                                                \
+		W[(x)] = tmp;                                                   \
+		e = vec8_add5(e, tmp, vec8_rol(a, 5), f(b, c, d), vec8_set(k)); \
+		b = vec8_ror(b, 2);                                             \
+	} while (0)
+
+/* Final rounds (no store) */
+#define vec8_ROUND_F(f, s, x, a, b, c, d, e, k)                     \
+	do{                                                               \
+		vec8 tmp = s(x);                                                \
+		e = vec8_add5(e, tmp, vec8_rol(a, 5), f(b, c, d), vec8_set(k)); \
+		b = vec8_ror(b, 2);                                             \
+	} while (0)
+
 /* When loading empty data words (0) */
 #define vec8_ROUND_E(f, x, a, b, c, d, e, k)                        \
 	do{                                                               \
-		vec8_W(x) = vec8_zero();                                        \
 		e = vec8_add4(e, vec8_rol(a, 5), f(b, c, d), vec8_set(k));      \
 		b = vec8_ror(b, 2);                                             \
 	} while (0)
+
+
+
 
 #define byte_mask(x)  ((1 << (8 * (x))) - 1)
 
 
 union vec_rawaddr {
 	uint8_t buffer[VEC_RAWADDR_LEN];
-	uint32_t val[4];
 	union leek_rawaddr addr;
 };
 
 
 struct leek_sha1 {
-	/* Internal state for 8 SHA1 blocks */
+	/* Internal state for 8 SHA1 blocks (update only) */
 	uint8_t block[8 * VEC_SHA1_BLOCK_SIZE];
 
 	/* Where the exponent is located (MSB) */
@@ -170,17 +197,19 @@ struct leek_sha1 {
 	/* Where the exponent starts located in the last 32b word (0 to 3)*/
 	unsigned int expo_pos;
 
-	/* Current exponent values (little-endian, High, Low) */
+	/* Hash state before last block */
+	vec8 H[5];
+
+	/* Base exponent snapshot (little-endian, High, Low) */
 	vec8 vexpo[2];
 
-	vec8 H[5]; /* Updated hash states */
 
-	/* Precomputed values */
-	vec8 PH[5]; /* Values a, b, c, d, e */
-	vec8 PW[3]; /* Two first static hash words + size word */
+	/* Precomputed values (very used buffer, put it on a new cache line) */
+	vec8 __cache_align PH[5]; /* Values a, b, c, d, e */
+	vec8               PW[3]; /* Two first static hash words + size word */
 
 	/* Final resulting addresses (hashes) */
-	union vec_rawaddr R[8];
+	union vec_rawaddr  R[8];
 };
 
 #endif /* !__LEEK_SHA1_AVX2_H */

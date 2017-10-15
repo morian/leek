@@ -170,14 +170,8 @@ static void leek_exhaust_prepare_rounds(struct leek_crypto *lc)
 static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo[2])
 {
 	vec8 a, b, c, d, e;
-	vec8 W[16];
+	vec8 W[77]; /* 80 cycles minus the last 3 ones */
 	vec8 vsize;
-
-	/* TODO:
-	 * - simplify xor operations relying on zero's (vec8_MIX)
-	 * - simplify some unused 'd' and 'e' values on the last round(s)
-	 *   => By hand (?)
-	 **/
 
 	a = lc->sha1.PH[0];
 	b = lc->sha1.PH[1];
@@ -191,88 +185,89 @@ static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo[2])
 	W[0] = lc->sha1.PW[0];
 	W[1] = lc->sha1.PW[1];
 
-	vec8_ROUND(vec8_F1, vec8_EXP,  2, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND(vec8_F1, vec8_EXP,  3, c, d, e, a, b, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,          4, b, c, d, e, a, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,          5, a, b, c, d, e, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,          6, e, a, b, c, d, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,          7, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,          8, c, d, e, a, b, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,          9, b, c, d, e, a, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,         10, a, b, c, d, e, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,         11, e, a, b, c, d, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,         12, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,         13, c, d, e, a, b, VEC_SHA1_K1);
-	vec8_ROUND_E(vec8_F1,         14, b, c, d, e, a, VEC_SHA1_K1);
-	vec8_ROUND(vec8_F1, vec8_END, 15, a, b, c, d, e, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_EXP,  2, d, e, a, b, c, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_EXP,  3, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,            4, b, c, d, e, a, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,            5, a, b, c, d, e, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,            6, e, a, b, c, d, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,            7, d, e, a, b, c, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,            8, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,            9, b, c, d, e, a, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,           10, a, b, c, d, e, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,           11, e, a, b, c, d, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,           12, d, e, a, b, c, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,           13, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_E(vec8_F1,           14, b, c, d, e, a, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_END, 15, a, b, c, d, e, VEC_SHA1_K1);
 
-	vec8_ROUND(vec8_F1, vec8_MIX, 16, e, a, b, c, d, VEC_SHA1_K1);
-	vec8_ROUND(vec8_F1, vec8_MIX, 17, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND(vec8_F1, vec8_MIX, 18, c, d, e, a, b, VEC_SHA1_K1);
-	vec8_ROUND(vec8_F1, vec8_MIX, 19, b, c, d, e, a, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_MXC, 16, e, a, b, c, d, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_MXC, 17, d, e, a, b, c, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_MX9, 18, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_MX9, 19, b, c, d, e, a, VEC_SHA1_K1);
 
-	vec8_ROUND(vec8_F2, vec8_MIX, 20, a, b, c, d, e, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 21, e, a, b, c, d, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 22, d, e, a, b, c, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 23, c, d, e, a, b, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 24, b, c, d, e, a, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 25, a, b, c, d, e, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 26, e, a, b, c, d, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 27, d, e, a, b, c, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 28, c, d, e, a, b, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 29, b, c, d, e, a, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 30, a, b, c, d, e, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 31, e, a, b, c, d, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 32, d, e, a, b, c, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 33, c, d, e, a, b, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 34, b, c, d, e, a, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 35, a, b, c, d, e, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 36, e, a, b, c, d, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 37, d, e, a, b, c, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 38, c, d, e, a, b, VEC_SHA1_K2);
-	vec8_ROUND(vec8_F2, vec8_MIX, 39, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX1, 20, a, b, c, d, e, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX1, 21, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX1, 22, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 23, c, d, e, a, b, VEC_SHA1_K2);
 
-	vec8_ROUND(vec8_F3, vec8_MIX, 40, a, b, c, d, e, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 41, e, a, b, c, d, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 42, d, e, a, b, c, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 43, c, d, e, a, b, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 44, b, c, d, e, a, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 45, a, b, c, d, e, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 46, e, a, b, c, d, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 47, d, e, a, b, c, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 48, c, d, e, a, b, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 49, b, c, d, e, a, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 50, a, b, c, d, e, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 51, e, a, b, c, d, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 52, d, e, a, b, c, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 53, c, d, e, a, b, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 54, b, c, d, e, a, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 55, a, b, c, d, e, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 56, e, a, b, c, d, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 57, d, e, a, b, c, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 58, c, d, e, a, b, VEC_SHA1_K3);
-	vec8_ROUND(vec8_F3, vec8_MIX, 59, b, c, d, e, a, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 24, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 25, a, b, c, d, e, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 26, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 27, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 28, c, d, e, a, b, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX7, 29, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX7, 30, a, b, c, d, e, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 31, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 32, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 33, c, d, e, a, b, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 34, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 35, a, b, c, d, e, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 36, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 37, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 38, c, d, e, a, b, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 39, b, c, d, e, a, VEC_SHA1_K2);
 
-	vec8_ROUND(vec8_F4, vec8_MIX, 60, a, b, c, d, e, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 61, e, a, b, c, d, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 62, d, e, a, b, c, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 63, c, d, e, a, b, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 64, b, c, d, e, a, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 65, a, b, c, d, e, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 66, e, a, b, c, d, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 67, d, e, a, b, c, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 68, c, d, e, a, b, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 69, b, c, d, e, a, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 70, a, b, c, d, e, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 71, e, a, b, c, d, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 72, d, e, a, b, c, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 73, c, d, e, a, b, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 74, b, c, d, e, a, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 75, a, b, c, d, e, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 76, e, a, b, c, d, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 77, d, e, a, b, c, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 78, c, d, e, a, b, VEC_SHA1_K4);
-	vec8_ROUND(vec8_F4, vec8_MIX, 79, b, c, d, e, a, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 40, a, b, c, d, e, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 41, e, a, b, c, d, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 42, d, e, a, b, c, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 43, c, d, e, a, b, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 44, b, c, d, e, a, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 45, a, b, c, d, e, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 46, e, a, b, c, d, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 47, d, e, a, b, c, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 48, c, d, e, a, b, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 49, b, c, d, e, a, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 50, a, b, c, d, e, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 51, e, a, b, c, d, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 52, d, e, a, b, c, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 53, c, d, e, a, b, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 54, b, c, d, e, a, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 55, a, b, c, d, e, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 56, e, a, b, c, d, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 57, d, e, a, b, c, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 58, c, d, e, a, b, VEC_SHA1_K3);
+	vec8_ROUND_O(vec8_F3, vec8_MXF, 59, b, c, d, e, a, VEC_SHA1_K3);
+
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 60, a, b, c, d, e, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 61, e, a, b, c, d, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 62, d, e, a, b, c, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 63, c, d, e, a, b, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 64, b, c, d, e, a, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 65, a, b, c, d, e, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 66, e, a, b, c, d, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 67, d, e, a, b, c, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 68, c, d, e, a, b, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 69, b, c, d, e, a, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 70, a, b, c, d, e, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 71, e, a, b, c, d, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 72, d, e, a, b, c, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 73, c, d, e, a, b, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 74, b, c, d, e, a, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 75, a, b, c, d, e, VEC_SHA1_K4);
+	vec8_ROUND_O(vec8_F4, vec8_MXF, 76, e, a, b, c, d, VEC_SHA1_K4);
+	vec8_ROUND_F(vec8_F4, vec8_MXF, 77, d, e, a, b, c, VEC_SHA1_K4);
+	vec8_ROUND_F(vec8_F4, vec8_MXF, 78, c, d, e, a, b, VEC_SHA1_K4);
+	vec8_ROUND_F(vec8_F4, vec8_MXF, 79, b, c, d, e, a, VEC_SHA1_K4);
 
 
 	/* We keep the first 3 words (12B) as we only need 10B */
@@ -280,7 +275,7 @@ static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo[2])
 	b = vec8_add(b, lc->sha1.H[1]);
 	c = vec8_add(c, lc->sha1.H[2]);
 
-	/* Here 'd' will contain garbage we won't read anyway */
+	/* Here 'd' will contain garbage but we won't read anyway */
 	vec8_transpose_8x32(a, b, c, d);
 
 	vec8_store((void *) &lc->sha1.R[0], vec8_bswap(a));

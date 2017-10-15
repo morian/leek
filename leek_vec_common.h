@@ -4,6 +4,9 @@
 # define VEC_SHA1_LBLOCK_SIZE    16
 # define VEC_SHA1_BLOCK_SIZE     (VEC_SHA1_LBLOCK_SIZE * 4)
 # define VEC_RAWADDR_LEN         16
+# define VEC_CACHELINE_SIZE      64 /* 512 bits */
+# define __align(x)              __attribute__((aligned((x))))
+# define __cache_align           __align(VEC_CACHELINE_SIZE)
 
 /* SHA1 constants */
 

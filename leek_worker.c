@@ -155,7 +155,7 @@ static struct leek_crypto *leek_crypto_init(void)
 	struct leek_crypto *lc;
 	BIGNUM *big_e;
 
-	lc = malloc(sizeof(*lc));
+	lc = aligned_alloc(LEEK_CACHELINE_SZ, sizeof(*lc));
 	if (!lc)
 		goto out;
 	memset(lc, 0, sizeof *lc);
