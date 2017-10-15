@@ -200,25 +200,24 @@ static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo[2])
 	vec8_ROUND_E(vec8_F1,           14, b, c, d, e, a, VEC_SHA1_K1);
 	vec8_ROUND_O(vec8_F1, vec8_END, 15, a, b, c, d, e, VEC_SHA1_K1);
 
-	vec8_ROUND_O(vec8_F1, vec8_MXC, 16, e, a, b, c, d, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_MXC, 16, e, a, b, c, d, VEC_SHA1_K1); /* W mostly const rol(vexpo[0] ^ W[0], 1) */
 	vec8_ROUND_O(vec8_F1, vec8_MXC, 17, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND_O(vec8_F1, vec8_MX9, 18, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_MX9, 18, c, d, e, a, b, VEC_SHA1_K1); /* W mostly const rol(vexpo[0] ^ vsize), 1) */
 	vec8_ROUND_O(vec8_F1, vec8_MX9, 19, b, c, d, e, a, VEC_SHA1_K1);
 
 	vec8_ROUND_O(vec8_F2, vec8_MX1, 20, a, b, c, d, e, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MX1, 21, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX1, 21, e, a, b, c, d, VEC_SHA1_K2); /* W mostly const rol(vexpo[0] ^ vsize), 2) */
 	vec8_ROUND_O(vec8_F2, vec8_MX1, 22, d, e, a, b, c, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 23, c, d, e, a, b, VEC_SHA1_K2);
-
-	vec8_ROUND_O(vec8_F2, vec8_MX3, 24, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 24, b, c, d, e, a, VEC_SHA1_K2); /* W mostly const rol(W[x-3] ^ W[x-8], 1) */
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 25, a, b, c, d, e, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 26, e, a, b, c, d, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 27, d, e, a, b, c, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 28, c, d, e, a, b, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MX7, 29, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX7, 29, b, c, d, e, a, VEC_SHA1_K2); /* W mostly = rol(W[x-3] ^ const, 1) */
 	vec8_ROUND_O(vec8_F2, vec8_MX7, 30, a, b, c, d, e, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MXF, 31, e, a, b, c, d, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MXF, 32, d, e, a, b, c, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 32, d, e, a, b, c, VEC_SHA1_K2); /* W mostly = rol(W[x-3] ^ const, 1) */
 	vec8_ROUND_O(vec8_F2, vec8_MXF, 33, c, d, e, a, b, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MXF, 34, b, c, d, e, a, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MXF, 35, a, b, c, d, e, VEC_SHA1_K2);
