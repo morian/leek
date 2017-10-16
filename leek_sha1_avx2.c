@@ -169,9 +169,23 @@ static void leek_exhaust_precalc_1(struct leek_crypto *lc)
 }
 
 
-static void leek_exhaust_precalc_2(struct leek_crypto *lc, vec8 vexpo_0)
+static void leek_exhaust_precalc_2(struct leek_crypto *lc, vec8 vexpo_1)
+{
+	lc->sha1.PW_C03 = vexpo_1;
+#if 0
+	/* This pre-computable data is not worth the memory load cost */
+	lc->sha1.PW_C17 = vec8_rol(vec8_xor(vexpo_1, lc->sha1.PW_C01), 1);
+	lc->sha1.PW_C20 = vec8_rol(lc->sha1.PW_C17, 1);
+	lc->sha1.PW_C23 = vec8_rol(vec8_xor(lc->sha1.PW_C15, lc->sha1.PW_C20), 1);
+#endif
+}
+
+
+/* Customized hash function (final block) */
+static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo_0)
 {
 	vec8 a, b, c, d, e;
+	vec8 W[77]; /* 88 rounds minus the 3 finals */
 
 	a = lc->sha1.PH[0];
 	b = lc->sha1.PH[1];
@@ -179,44 +193,21 @@ static void leek_exhaust_precalc_2(struct leek_crypto *lc, vec8 vexpo_0)
 	d = lc->sha1.PH[3];
 	e = lc->sha1.PH[4];
 
-	/* This is round 2 pre-pre-computation */
-	c = vec8_add5(c, vexpo_0, vec8_rol(d, 5), vec8_F1(e, a, b), vec8_set(VEC_SHA1_K1));
-	e = vec8_ror(e, 2);
-
-	lc->sha1.PH_C = c;
-	lc->sha1.PH_E = e;
-
-	lc->sha1.PW_C02 = vexpo_0;
-	lc->sha1.PW_C16 = vec8_rol(vec8_xor(vexpo_0, lc->sha1.PW_C00), 1);
-	lc->sha1.PW_C18 = vec8_rol(vec8_xor(vexpo_0, lc->sha1.PW_C15), 1);
-	lc->sha1.PW_C21 = vec8_rol(lc->sha1.PW_C18, 1);
-	lc->sha1.PW_C24 = vec8_rol(vec8_xor(lc->sha1.PW_C16, lc->sha1.PW_C21), 1);
-}
-
-
-/* Customized hash function (final block) */
-static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo_1)
-{
-	vec8 a, b, c, d, e;
-	vec8 W[77]; /* 80 cycles minus the last 3 ones */
-
-	a = lc->sha1.PH[0];
-	b = lc->sha1.PH[1];
-	c = lc->sha1.PH_C;
-	d = lc->sha1.PH[3];
-	e = lc->sha1.PH_E;
-
 	/* Load pre-computed data */
 	W[0]  = lc->sha1.PW_C00;
 	W[1]  = lc->sha1.PW_C01;
-	W[2]  = lc->sha1.PW_C02;
-	W[3]  = vexpo_1;
+	W[2]  = vexpo_0;
+	W[3]  = lc->sha1.PW_C03;
 	W[15] = lc->sha1.PW_C15;
-	W[16] = lc->sha1.PW_C16;
-	W[18] = lc->sha1.PW_C18;
-	W[21] = lc->sha1.PW_C21;
-	W[24] = lc->sha1.PW_C24;
 
+#if 0
+	/* This would be the load of pre-computed data */
+	W[17] = lc->sha1.PW_C17;
+	W[20] = lc->sha1.PW_C20;
+	W[23] = lc->sha1.PW_C23;
+#endif
+
+	vec8_ROUND_F(vec8_F1, vec8_LDW,  2, d, e, a, b, c, VEC_SHA1_K1);
 	vec8_ROUND_F(vec8_F1, vec8_LDW,  3, c, d, e, a, b, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,            4, b, c, d, e, a, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,            5, a, b, c, d, e, VEC_SHA1_K1);
@@ -231,24 +222,24 @@ static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo_1)
 	vec8_ROUND_E(vec8_F1,           14, b, c, d, e, a, VEC_SHA1_K1);
 	vec8_ROUND_F(vec8_F1, vec8_LDW, 15, a, b, c, d, e, VEC_SHA1_K1);
 
-	vec8_ROUND_F(vec8_F1, vec8_LDW, 16, e, a, b, c, d, VEC_SHA1_K1);
-	vec8_ROUND_O(vec8_F1, vec8_MXC, 17, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND_F(vec8_F1, vec8_LDW, 18, c, d, e, a, b, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_MXC, 16, e, a, b, c, d, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_MXC, 17, d, e, a, b, c, VEC_SHA1_K1); /* pre-computable */
+	vec8_ROUND_O(vec8_F1, vec8_MX9, 18, c, d, e, a, b, VEC_SHA1_K1);
 	vec8_ROUND_O(vec8_F1, vec8_MX9, 19, b, c, d, e, a, VEC_SHA1_K1);
 
-	vec8_ROUND_O(vec8_F2, vec8_MX1, 20, a, b, c, d, e, VEC_SHA1_K2);
-	vec8_ROUND_F(vec8_F2, vec8_LDW, 21, e, a, b, c, d, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX1, 20, a, b, c, d, e, VEC_SHA1_K2); /* pre-computable */
+	vec8_ROUND_O(vec8_F2, vec8_MX1, 21, e, a, b, c, d, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX1, 22, d, e, a, b, c, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MX3, 23, c, d, e, a, b, VEC_SHA1_K2);
-	vec8_ROUND_F(vec8_F2, vec8_LDW, 24, b, c, d, e, a, VEC_SHA1_K2);
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 23, c, d, e, a, b, VEC_SHA1_K2); /* pre-computable */
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 24, b, c, d, e, a, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 25, a, b, c, d, e, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 26, e, a, b, c, d, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 27, d, e, a, b, c, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 28, c, d, e, a, b, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MX7, 29, b, c, d, e, a, VEC_SHA1_K2); /* W mostly = rol(W[x-3] ^ const, 1) */
+	vec8_ROUND_O(vec8_F2, vec8_MX7, 29, b, c, d, e, a, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX7, 30, a, b, c, d, e, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MXF, 31, e, a, b, c, d, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MXF, 32, d, e, a, b, c, VEC_SHA1_K2); /* W mostly = rol(W[x-3] ^ const, 1) */
+	vec8_ROUND_O(vec8_F2, vec8_MXF, 32, d, e, a, b, c, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MXF, 33, c, d, e, a, b, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MXF, 34, b, c, d, e, a, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MXF, 35, a, b, c, d, e, VEC_SHA1_K2);
@@ -455,14 +446,18 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 	leek_exhaust_precalc_1(lc);
 
 
+	/* While using RSA 1024, inner is 16 and outer is 8388608
+	 * This makes sense to perform the outer loop inside the inner loop
+	 * to perform less stage 2 pre-comptutes */
 	/* Total real e checked is 3FC00000 (~1.70GH):
 	 * 8 * ((outer_count - outer_init) * inner_count - inner_init) */
 
-	for (unsigned int o = outer_init; o < outer_count; ++o) {
-		leek_exhaust_precalc_2(lc, vexpo[0]);
+	for (unsigned int i = inner_init; i < inner_count; ++i) {
+		leek_exhaust_precalc_2(lc, vexpo[1]);
+		vexpo[0] = lc->sha1.vexpo[0];
 
-		for (unsigned int i = inner_init; i < inner_count; ++i) {
-			leek_sha1_finalize(lc, vexpo[1]);
+		for (unsigned int o = outer_init; o < outer_count; ++o) {
+			leek_sha1_finalize(lc, vexpo[0]);
 
 			/* Check results for all AVX2 lanes here */
 			for (int r = 0; r < 8; ++r) {
@@ -484,12 +479,11 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 				}
 			}
 
-			vexpo[1] = vec8_add(vexpo[1], vincr[1]);
+			vexpo[0] = vec8_add(vexpo[0], vincr[0]);
 			wk->hash_count += 8;
 		}
 
-		vexpo[0] = vec8_add(vexpo[0], vincr[0]);
-		inner_init = 0;
+		vexpo[1] = vec8_add(vexpo[1], vincr[1]);
 	}
 
 	return 0;
