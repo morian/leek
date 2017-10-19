@@ -151,9 +151,16 @@ static void leek_exhaust_precalc_1(struct leek_crypto *lc)
 	d = lc->sha1.H[3];
 	e = lc->sha1.H[4];
 
-	/* Pre-compute the first two rounds here (static data) */
-	vec8_ROUND(vec8_F1, vec8_SRC,  0, a, b, c, d, e, VEC_SHA1_K1);
-	vec8_ROUND(vec8_F1, vec8_SRC,  1, e, a, b, c, d, VEC_SHA1_K1);
+	/* Pre-compute the first few rounds here (static data) */
+	vec8_ROUND_O(vec8_F1, vec8_SRC,  0, a, b, c, d, e, VEC_SHA1_K1);
+	vec8_ROUND_O(vec8_F1, vec8_SRC,  1, e, a, b, c, d, VEC_SHA1_K1);
+
+	/* This is partial pre-calculus for round 2 */
+	vec8_ROUND_E(vec8_F1,            2, d, e, a, b, c, VEC_SHA1_K1);
+
+	/* This is very partial pre-calculus or round 3 */
+	lc->sha1.PA_C03 = vec8_add3(b, vec8_F1(d, e, a), vec8_set(VEC_SHA1_K1));
+	d = vec8_ror(d, 2);
 
 	/* Store our current state(s) */
 	lc->sha1.PW_C00 = W[0];         /* 1st static word */
@@ -172,12 +179,9 @@ static void leek_exhaust_precalc_1(struct leek_crypto *lc)
 static void leek_exhaust_precalc_2(struct leek_crypto *lc, vec8 vexpo_1)
 {
 	lc->sha1.PW_C03 = vexpo_1;
-#if 0
-	/* This pre-computable data is not worth the memory load cost */
-	lc->sha1.PW_C17 = vec8_rol(vec8_xor(vexpo_1, lc->sha1.PW_C01), 1);
-	lc->sha1.PW_C20 = vec8_rol(lc->sha1.PW_C17, 1);
-	lc->sha1.PW_C23 = vec8_rol(vec8_xor(lc->sha1.PW_C15, lc->sha1.PW_C20), 1);
-#endif
+
+	/* Enhance pre-compute for cycle 3 (here we have temporary value for 'b') */
+	lc->sha1.PH[1] = vec8_add(lc->sha1.PA_C03, vexpo_1);
 }
 
 
@@ -185,7 +189,8 @@ static void leek_exhaust_precalc_2(struct leek_crypto *lc, vec8 vexpo_1)
 static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo_0)
 {
 	vec8 a, b, c, d, e;
-	vec8 W[77]; /* 88 rounds minus the 3 finals */
+	/* 80 rounds minus the 3 finals */
+	vec8 W[77];
 
 	a = lc->sha1.PH[0];
 	b = lc->sha1.PH[1];
@@ -200,15 +205,16 @@ static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo_0)
 	W[3]  = lc->sha1.PW_C03;
 	W[15] = lc->sha1.PW_C15;
 
-#if 0
-	/* This would be the load of pre-computed data */
-	W[17] = lc->sha1.PW_C17;
-	W[20] = lc->sha1.PW_C20;
-	W[23] = lc->sha1.PW_C23;
-#endif
+	/* This finishes round 2 gracefully */
+	c = vec8_add(c, vexpo_0);
 
-	vec8_ROUND_F(vec8_F1, vec8_LDW,  2, d, e, a, b, c, VEC_SHA1_K1);
-	vec8_ROUND_F(vec8_F1, vec8_LDW,  3, c, d, e, a, b, VEC_SHA1_K1);
+	/* This finishes round 3 gracefully as well */
+	b = vec8_add(vec8_rol(c, 5), b);
+
+	/* We choose not to pre-compute words for rounds 17, 20 and 23
+	 * because benchmarks showed a performance regression probably due
+	 * to memory loading. Over-optimization is not worth here. */
+
 	vec8_ROUND_E(vec8_F1,            4, b, c, d, e, a, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,            5, a, b, c, d, e, VEC_SHA1_K1);
 	vec8_ROUND_E(vec8_F1,            6, e, a, b, c, d, VEC_SHA1_K1);
@@ -223,14 +229,14 @@ static void __hot leek_sha1_finalize(struct leek_crypto *lc, vec8 vexpo_0)
 	vec8_ROUND_F(vec8_F1, vec8_LDW, 15, a, b, c, d, e, VEC_SHA1_K1);
 
 	vec8_ROUND_O(vec8_F1, vec8_MXC, 16, e, a, b, c, d, VEC_SHA1_K1);
-	vec8_ROUND_O(vec8_F1, vec8_MXC, 17, d, e, a, b, c, VEC_SHA1_K1); /* pre-computable */
+	vec8_ROUND_O(vec8_F1, vec8_MXC, 17, d, e, a, b, c, VEC_SHA1_K1);
 	vec8_ROUND_O(vec8_F1, vec8_MX9, 18, c, d, e, a, b, VEC_SHA1_K1);
 	vec8_ROUND_O(vec8_F1, vec8_MX9, 19, b, c, d, e, a, VEC_SHA1_K1);
 
-	vec8_ROUND_O(vec8_F2, vec8_MX1, 20, a, b, c, d, e, VEC_SHA1_K2); /* pre-computable */
+	vec8_ROUND_O(vec8_F2, vec8_MX1, 20, a, b, c, d, e, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX1, 21, e, a, b, c, d, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX1, 22, d, e, a, b, c, VEC_SHA1_K2);
-	vec8_ROUND_O(vec8_F2, vec8_MX3, 23, c, d, e, a, b, VEC_SHA1_K2); /* pre-computable */
+	vec8_ROUND_O(vec8_F2, vec8_MX3, 23, c, d, e, a, b, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 24, b, c, d, e, a, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 25, a, b, c, d, e, VEC_SHA1_K2);
 	vec8_ROUND_O(vec8_F2, vec8_MX3, 26, e, a, b, c, d, VEC_SHA1_K2);

@@ -210,12 +210,7 @@ struct leek_sha1 {
 	vec8 PW_C03; /* Static (stage 2) word 3 (exponent LSBs) */
 	vec8 PW_C15; /* W word for cycle 15 (hash size) */
 
-#if 0
-	/* Pre-computable words declarations */
-	vec8 PW_C17; /* W word for cycle 17 */
-	vec8 PW_C20; /* W word for cycle 20 */
-	vec8 PW_C23; /* W word for cycle 23 */
-#endif
+	vec8 PA_C03; /* 'add' pre-compute for cycle 3 (post stage 1) */
 
 	/* Final resulting addresses (hashes) */
 	union vec_rawaddr  R[8];
