@@ -464,7 +464,7 @@ int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 		for (unsigned int o = outer_init; o < outer_count; ++o) {
 			leek_sha1_finalize(lc, vexpo[0]);
 
-			/* Check results for all AVX2 lanes here */
+			/* Check results for all SSE lanes here (consumes 6% CPU) */
 			for (int r = 0; r < 4; ++r) {
 				union leek_rawaddr *result;
 				int length;
