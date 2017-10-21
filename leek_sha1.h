@@ -3,6 +3,8 @@
 
 # if defined(__AVX2__)
 #  include "leek_sha1_avx2.h"
+# elif defined(__SSSE3__)
+#  include "leek_sha1_sse.h"
 # else
 #  include "leek_sha1_generic.h"
 # endif

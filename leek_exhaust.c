@@ -45,7 +45,8 @@ static int __unused leek_lookup(const union leek_rawaddr *addr)
 
 #if defined(__AVX2__)
 # include "leek_sha1_avx2.c"
-/* TODO: handle __SSSE3__ instruction set */
+#elif defined(__SSSE3__)
+# include "leek_sha1_sse.c"
 #else
 # include "leek_sha1_generic.c"
 #endif
