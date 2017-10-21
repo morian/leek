@@ -508,11 +508,12 @@ void leek_metric_humanize(double value, double *result,
 
 static void leek_metric_timer_display(const char *prefix, uint64_t msecs)
 {
-	unsigned int seconds  = (msecs /    1000) % 60;
-	unsigned int minutes  = (msecs /   60000) % 60;
-	unsigned int hours    = (msecs / 3600000);
+	unsigned int seconds  = (msecs /     1000) % 60;
+	unsigned int minutes  = (msecs /    60000) % 60;
+	unsigned int hours    = (msecs /  3600000) % 24;
+	unsigned int days     = (msecs / 86400000);
 
-	printf("%s%3u:%02u:%02u", prefix, hours, minutes, seconds);
+	printf("%s%2u:%02u:%02u:%02u", prefix, days, hours, minutes, seconds);
 }
 
 
