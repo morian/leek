@@ -3,82 +3,84 @@
 # include <stdint.h>
 # include <immintrin.h>
 
-# include "leek_vec_common.h"
-# define __hot     __attribute__((hot))
+/* AVX2: 8 x 32b lanes (256b of data in a single shot!) */
+typedef __m256i vecx;
 
-typedef __m256i vec8;
-
-
-static inline vec8 vec8_zero(void)
+static inline vecx vecx_zero(void)
 {
 	return _mm256_setzero_si256();
 }
 
-static inline vec8 vec8_set(uint32_t x)
+static inline vecx vecx_set(uint32_t x)
 {
 	return _mm256_set_epi32(x, x, x, x, x, x, x, x);
 }
 
-static inline vec8 vec8_load(const void *ptr)
+static inline vecx vecx_load(const void *ptr)
 {
 	return _mm256_loadu_si256(ptr);
 }
 
-static inline void vec8_store(void *ptr, vec8 x)
+static inline void vecx_store(void *ptr, vecx x)
 {
 	_mm256_storeu_si256(ptr, x);
 }
 
-static inline vec8 vec8_or(vec8 x, vec8 y)
+static inline vecx vecx_or(vecx x, vecx y)
 {
 	return _mm256_or_si256(x, y);
 }
 
-static inline vec8 vec8_xor(vec8 x, vec8 y)
+static inline vecx vecx_xor(vecx x, vecx y)
 {
 	return _mm256_xor_si256(x, y);
 }
 
-static inline vec8 vec8_and(vec8 x, vec8 y)
+static inline vecx vecx_and(vecx x, vecx y)
 {
 	return _mm256_and_si256(x, y);
 }
 
-static inline vec8 vec8_anot(vec8 x, vec8 y)
+static inline vecx vecx_anot(vecx x, vecx y)
 {
 	return _mm256_andnot_si256(x, y);
 }
 
-static inline vec8 vec8_add(vec8 x, vec8 y)
+static inline vecx vecx_add(vecx x, vecx y)
 {
 	return _mm256_add_epi32(x, y);
 }
 
-static inline vec8 vec8_shl(vec8 x, int y)
+static inline vecx vecx_shl(vecx x, int y)
 {
 	return _mm256_slli_epi32(x, y);
 }
 
-static inline vec8 vec8_rol(vec8 x, int y)
+static inline vecx vecx_rol(vecx x, int y)
 {
-	vec8 a = vec8_shl(x, y);
-	vec8 b = _mm256_srli_epi32(x, 32 - y);
-	return vec8_or(a, b);
+	vecx a = vecx_shl(x, y);
+	vecx b = _mm256_srli_epi32(x, 32 - y);
+	return vecx_or(a, b);
 }
 
-static inline vec8 vec8_ror(vec8 x, int y)
+static inline vecx vecx_ror(vecx x, int y)
 {
-	vec8 a = _mm256_srli_epi32(x, y);
-	vec8 b = vec8_shl(x, 32 - y);
-	return vec8_or(a, b);
+	vecx a = _mm256_srli_epi32(x, y);
+	vecx b = vecx_shl(x, 32 - y);
+	return vecx_or(a, b);
 }
 
-static inline vec8 vec8_bswap(vec8 x)
+static inline vecx vecx_bswap(vecx x)
 {
 	__m256i mask =
 		_mm256_set_epi32(0x0c0d0e0fUL, 0x08090a0bUL, 0x04050607UL, 0x00010203UL,
 		                 0x0c0d0e0fUL, 0x08090a0bUL, 0x04050607UL, 0x00010203UL);
 	return _mm256_shuffle_epi8(x, mask);
+}
+
+static inline vecx vecx_even_numbers(void)
+{
+	return _mm256_set_epi32(14, 12, 10, 8, 6, 4, 2, 0);
 }
 
 /**
@@ -94,7 +96,7 @@ static inline vec8 vec8_bswap(vec8 x)
  *   e1 e2 e3 e4 f1 f2 f3 f4
  *   g1 g2 g3 g4 h1 h2 h3 h4
  */
-#define vec8_transpose_8x32(row0, row1, row2, row3)                     \
+#define vecx_transpose(row0, row1, row2, row3)                          \
 	do {                                                                  \
 		__m256i __s0 = (row0), __s1 = (row1), __s2 = (row2), __s3 = (row3); \
 		__m256i __t0 = _mm256_unpacklo_epi32 (__s0, __s1);                  \
@@ -112,108 +114,7 @@ static inline vec8 vec8_bswap(vec8 x)
 	} while (0)
 
 
-#define vec8_add3(a, ...) vec8_add(a, vec8_add(__VA_ARGS__))
-#define vec8_add4(a, ...) vec8_add(a, vec8_add3(__VA_ARGS__))
-#define vec8_add5(a, ...) vec8_add(a, vec8_add4(__VA_ARGS__))
-#define vec8_xor2(a, ...) vec8_xor(a, __VA_ARGS__)
-#define vec8_xor3(a, ...) vec8_xor(a, vec8_xor2(__VA_ARGS__))
-#define vec8_xor4(a, ...) vec8_xor(a, vec8_xor3(__VA_ARGS__))
-
-#define vec8_F1(x, y, z) vec8_or(vec8_and(x, y), vec8_anot(x, z))
-#define vec8_F2(x, y, z) vec8_xor3(x, y, z)
-#define vec8_F3(x, y, z) vec8_or(vec8_and(x, y), vec8_and(z, vec8_xor(x, y)))
-#define vec8_F4(x, y, z) vec8_xor3(x, y, z)
-
-
-/** Original round **/
-#define vec8_W(x)   W[(x) & 15]         /* W is our internal working buffer name */
-#define vec8_SRC(x) vec8_bswap(in[x])   /* in is our input data name */
-#define vec8_MIX(x) vec8_rol(vec8_xor4(vec8_W(x + 13), vec8_W(x + 8), vec8_W(x + 2), vec8_W(x)), 1)
-
-#define vec8_ROUND(f, s, x, a, b, c, d, e, k)                       \
-	do{                                                               \
-		vec8 tmp = s(x);                                                \
-		vec8_W(x) = tmp;                                                \
-		e = vec8_add5(e, tmp, vec8_rol(a, 5), f(b, c, d), vec8_set(k)); \
-		b = vec8_ror(b, 2);                                             \
-	} while (0)
-
-
-/** Optimized rounds **/
-#define vec8_LDW(x) W[(x)]              /* Load pre-computed word */
-
-#define vec8_MX1(x) vec8_rol(         (W[(x)-3]                                ), 1)
-#define vec8_MX3(x) vec8_rol(vec8_xor2(W[(x)-3], W[(x)-8]                      ), 1)
-#define vec8_MX7(x) vec8_rol(vec8_xor3(W[(x)-3], W[(x)-8], W[(x)-14]           ), 1)
-#define vec8_MX9(x) vec8_rol(vec8_xor2(W[(x)-3],                      W[(x)-16]), 1)
-#define vec8_MXC(x) vec8_rol(vec8_xor2(                    W[(x)-14], W[(x)-16]), 1)
-#define vec8_MXF(x) vec8_rol(vec8_xor4(W[(x)-3], W[(x)-8], W[(x)-14], W[(x)-16]), 1)
-
-
-/* Optimized general round */
-#define vec8_ROUND_O(f, s, x, a, b, c, d, e, k)                     \
-	do{                                                               \
-		vec8 tmp = s(x);                                                \
-		W[(x)] = tmp;                                                   \
-		e = vec8_add5(e, tmp, vec8_rol(a, 5), f(b, c, d), vec8_set(k)); \
-		b = vec8_ror(b, 2);                                             \
-	} while (0)
-
-/* Final rounds / no store */
-#define vec8_ROUND_F(f, s, x, a, b, c, d, e, k)                     \
-	do{                                                               \
-		vec8 tmp = s(x);                                                \
-		e = vec8_add5(e, tmp, vec8_rol(a, 5), f(b, c, d), vec8_set(k)); \
-		b = vec8_ror(b, 2);                                             \
-	} while (0)
-
-/* NULL data / no load & store */
-#define vec8_ROUND_E(f, x, a, b, c, d, e, k)                        \
-	do{                                                               \
-		e = vec8_add4(e, vec8_rol(a, 5), f(b, c, d), vec8_set(k));      \
-		b = vec8_ror(b, 2);                                             \
-	} while (0)
-
-
-
-
-#define byte_mask(x)  ((1 << (8 * (x))) - 1)
-
-
-union vec_rawaddr {
-	uint8_t buffer[VEC_RAWADDR_LEN];
-	union leek_rawaddr addr;
-};
-
-
-struct leek_sha1 {
-	/* Internal state for 8 SHA1 blocks (update only) */
-	uint8_t block[8 * VEC_SHA1_BLOCK_SIZE];
-
-	/* Where the exponent is located (MSB) */
-	/* This also sets the number of static rounds */
-	unsigned int expo_round;
-	/* Where the exponent starts located in the last 32b word (0 to 3)*/
-	unsigned int expo_pos;
-
-	/* Hash state before last block */
-	vec8 H[5];
-
-	/* Base exponent snapshot (little-endian, High, Low) */
-	vec8 vexpo[2];
-
-	/* Pre-computed values (post stage 1) */
-	vec8 __cache_align PH[5]; /* Values a, b, c, d, e */
-
-	vec8 PW_C00; /* Static word 0 */
-	vec8 PW_C01; /* Sttati word 1 */
-	vec8 PW_C03; /* Static (stage 2) word 3 (exponent LSBs) */
-	vec8 PW_C15; /* W word for cycle 15 (hash size) */
-
-	vec8 PA_C03; /* 'add' pre-compute for cycle 3 (post stage 1) */
-
-	/* Final resulting addresses (hashes) */
-	union vec_rawaddr  R[8];
-};
+#define VECX_LANE_ORDER                         3
+#define VECX_IMPL_NAME                     "AVX2"
 
 #endif /* !__LEEK_SHA1_AVX2_H */

@@ -9,7 +9,12 @@
 # include <openssl/rsa.h>
 
 # include "leek_helper.h"
-# include "leek_sha1.h"
+
+# if defined(__AVX2__) || defined(__SSSE3__)
+#  include "leek_sha1_specific.h"
+# else
+#  include "leek_sha1_generic.h"
+# endif
 
 # ifndef OPENSSL_VERSION_1_1
 #  define OPENSSL_VERSION_1_1   0x10100000L

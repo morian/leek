@@ -1,4 +1,3 @@
-#include <endian.h>
 #include <string.h>
 
 #include "leek_cpu.h"
@@ -24,7 +23,7 @@ static uint64_t leek_lookup_mask[LEEK_LENGTH_MAX + 1] = {
 	0x0000000000000000,
 };
 
-
+/* This function might be unused by specific implementations. */
 static int __unused leek_lookup(const union leek_rawaddr *addr)
 {
 	struct leek_prefix_bucket *bucket = &leek.prefixes->bucket[addr->index];
@@ -42,11 +41,8 @@ static int __unused leek_lookup(const union leek_rawaddr *addr)
 	return 0;
 }
 
-
-#if defined(__AVX2__)
-# include "leek_sha1_avx2.c"
-#elif defined(__SSSE3__)
-# include "leek_sha1_sse.c"
+#if defined(__AVX2__) || defined(__SSSE3__)
+# include "leek_sha1_specific.c"
 #else
 # include "leek_sha1_generic.c"
 #endif
