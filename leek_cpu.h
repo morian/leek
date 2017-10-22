@@ -39,6 +39,12 @@
 
 /* For functions or variables that can be unused */
 # define __unused                __attribute__((unused))
+# define __flatten               __attribute__((flatten))
+# define __hot                   __attribute__((hot))
+
+/* Help compiler in generating more optimized code for some expected branches */
+# define likely(x)               __builtin_expect(!!(x), 1)
+# define unlikely(x)             __builtin_expect(!!(x), 0)
 
 
 /* Holds the crypto stuff we need in workers */
@@ -62,21 +68,29 @@ struct leek_context {
 	/* Structure holding configuration from argument parsing */
 	struct {
 		const char *input_path;    /* Input prefix file */
+		const char *prefix;        /* Single prefix mode */
 		const char *output_path;   /* Output directory */
+
 		unsigned int keysize;      /* RSA key size */
 		unsigned int threads;      /* Number of running threads */
 		unsigned int stop_count;   /* Stop after # successes (with LEEK_FLAG_STOP) */
 		unsigned int len_min;      /* Minimum prefix size */
 		unsigned int len_max;      /* Maximum prefix size */
 		unsigned int flags;        /* See enum bellow */
+		unsigned int mode;         /* See other enum bellow */
 	} config;
 
 	/* Locks provided to OpenSSL */
 	pthread_mutex_t *openssl_locks;
 
-	/* Tree of loaded prefixes from input file. */
-	struct leek_prefixes *prefixes;
 	struct leek_worker *worker;
+	union {
+		/* Tree of loaded prefixes from input file. */
+		struct leek_prefixes *prefixes;
+
+		/* Single address lookup mode */
+		union leek_rawaddr address;
+	};
 
 	unsigned int found_hash_count;
 	unsigned int error_hash_count;
@@ -95,6 +109,12 @@ enum {
 	LEEK_FLAG_VERBOSE   = (1 << 0),  /* Run in verbose mode */
 	LEEK_FLAG_STOP      = (1 << 1),  /* Stop after a single success */
 	LEEK_FLAG_BENCHMARK = (1 << 2),  /* Show overall hashrate instead of local */
+};
+
+/* Enumeration of different lookup modes available */
+enum {
+	LEEK_MODE_MULTI     =  0,  /* Multiple prefixes lookup */
+	LEEK_MODE_SINGLE    =  1,  /* Single prefix lookup */
 };
 
 

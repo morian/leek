@@ -43,10 +43,14 @@ struct leek_prefixes {
 /* Prefix comparison function */
 int leek_prefixes_suffix_cmp(const void *a, const void *b);
 
-/* Common shared functions */
+/** Common shared functions **/
+
+/* Read a single prefix from parameter */
+int leek_prefix_parse(union leek_rawaddr *laddr, const char *word, unsigned int len);
+
+/* Build a prefix list from file */
 struct leek_prefixes *leek_readfile(const char *filename,
                                     unsigned int flt_min, unsigned int flt_max);
 void leek_prefixes_free(struct leek_prefixes *lp);
-
 
 #endif /* !__LEAK_HELPER_H */

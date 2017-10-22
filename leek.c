@@ -22,6 +22,7 @@ struct leek_context leek;
 
 static struct option leek_long_options[] = {
 	{"input",     1, 0, 'i'},
+	{"prefix",    1, 0, 'p'},
 	{"outdir",    1, 0, 'o'},
 	{"length",    1, 0, 'l'},
 	{"key-size",  1, 0, 'k'},
@@ -39,6 +40,7 @@ static void leek_usage(FILE *fp, const char *prog_name)
 	fprintf(fp, "Usage: %s [OPTIONS]\n", prog_name);
 	fprintf(fp, "\n");
 	fprintf(fp, " -i, --input        input file containing prefixes.\n");
+	fprintf(fp, " -p, --prefix       single prefix attack.\n");
 	fprintf(fp, " -o, --output       output file directory (default prints on stdout).\n");
 	fprintf(fp, " -l, --length=N:M   length range filter [%u-%u].\n",
 	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
@@ -91,12 +93,13 @@ static int leek_options_parse(int argc, char *argv[])
 	/* These are default values */
 	leek.config.threads = 1;
 	leek.config.keysize = LEEK_KEYSIZE_MIN;
+	leek.config.mode = LEEK_MODE_MULTI;
 
 	while (1) {
 		unsigned long val;
 		int c;
 
-		c = getopt_long(argc, argv, "l:i:o:k:bt:s::vh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:p:i:o:k:bt:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -132,7 +135,13 @@ static int leek_options_parse(int argc, char *argv[])
 				break;
 
 			case 'i':
+				leek.config.mode = LEEK_MODE_MULTI;
 				leek.config.input_path = optarg;
+				break;
+
+			case 'p':
+				leek.config.mode = LEEK_MODE_SINGLE;
+				leek.config.prefix = optarg;
 				break;
 
 			case 's':
@@ -198,8 +207,8 @@ static int leek_options_parse(int argc, char *argv[])
 		ret = -1;
 	}
 
-	if (!leek.config.input_path) {
-		fprintf(stderr, "[-] error: no input prefix file provided.\n");
+	if (!leek.config.input_path && !leek.config.prefix) {
+		fprintf(stderr, "[-] error: no prefix file or single prefix provided.\n");
 		ret = -1;
 	}
 out:
@@ -392,9 +401,80 @@ out:
 }
 
 
-static int leek_init(void)
+static int leek_init_prefix(void)
+{
+	unsigned int length = strlen(leek.config.prefix);
+	int ret = -1;
+
+	if (length < leek.config.len_min || length > leek.config.len_max) {
+		fprintf(stderr, "[+] error: input prefix is out of range.\n");
+		goto out;
+	}
+
+	ret = leek_prefix_parse(&leek.address, leek.config.prefix, length);
+	if (ret < 0) {
+		fprintf(stderr, "[-] error: unable to parse provided input prefix.\n");
+		goto out;
+	}
+
+	leek.config.len_min = length;
+	leek.config.len_max = leek.config.len_min;
+	leek.prob_find_1 = 1.0 / powl(2, 5 * length);
+
+	if (leek.config.flags & LEEK_FLAG_VERBOSE)
+		printf("[+] Loaded a single target address with size %u\n", length);
+
+out:
+	return ret;
+}
+
+
+static int leek_init_prefixes(void)
 {
 	struct leek_prefixes *lp;
+	int ret = -1;
+
+	lp = leek_readfile(leek.config.input_path, leek.config.len_min, leek.config.len_max);
+	if (!lp)
+		goto out;
+
+	if (!lp->word_count) {
+		fprintf(stderr, "[-] error: no matching prefix in %s.\n", leek.config.input_path);
+		goto lp_free;
+	}
+
+	/* Update min and max length based on the loaded dictionary */
+	leek.config.len_min = lp->length_min;
+	leek.config.len_max = lp->length_max;
+	leek.prob_find_1 = lp->prob_find_1;
+	leek.prefixes = lp;
+
+	if (leek.config.flags & LEEK_FLAG_VERBOSE) {
+		if (lp->length_min == lp->length_max)
+			printf("[+] Loaded %u valid prefixes with size %u.\n",
+			       lp->word_count, lp->length_min);
+		else
+			printf("[+] Loaded %u valid prefixes in range %u:%u.\n",
+			       lp->word_count, lp->length_min, lp->length_max);
+
+		if (lp->invalid_count || lp->duplicate_count || lp->filtered_count)
+			printf("[!] Rejected %u invalid, %u filtered and %u duplicate prefixes.\n",
+			       lp->invalid_count, lp->filtered_count, lp->duplicate_count);
+	}
+
+	ret = 0;
+out:
+	return ret;
+
+lp_free:
+	free(lp);
+	ret = -1;
+	goto out;
+}
+
+
+static int leek_init(void)
+{
 	int ret = -1;
 
 	printf(".________________________________________________.\n");
@@ -420,38 +500,28 @@ static int leek_init(void)
 	if (ret < 0)
 		goto out;
 
-	lp = leek_readfile(leek.config.input_path, leek.config.len_min, leek.config.len_max);
-	if (!lp)
-		goto out;
-
-	if (!lp->word_count) {
-		fprintf(stderr, "[-] error: no matching prefix in %s.\n", leek.config.input_path);
-		goto lp_free;
-	}
-
-	/* Update min and max length based on the loaded dictionary */
-	leek.config.len_min = lp->length_min;
-	leek.config.len_max = lp->length_max;
-	leek.prob_find_1 = lp->prob_find_1;
-	leek.prefixes = lp;
-
 	ret = leek_sha1_init();
 	if (ret < 0)
 		goto out;
 
+	switch (leek.config.mode) {
+		/* Initialize prefix list from file (lookup in multi-hash mode) */
+		case LEEK_MODE_MULTI:
+			ret = leek_init_prefixes();
+			break;
 
-	if (leek.config.flags & LEEK_FLAG_VERBOSE) {
-		if (lp->length_min == lp->length_max)
-			printf("[+] Loaded %u valid prefixes with size %u.\n",
-			       lp->word_count, lp->length_min);
-		else
-			printf("[+] Loaded %u valid prefixes in range %u:%u.\n",
-			       lp->word_count, lp->length_min, lp->length_max);
+		/* Initialize a single prefix attack from user-provided parameter */
+		case LEEK_MODE_SINGLE:
+			ret = leek_init_prefix();
+			break;
 
-		if (lp->invalid_count || lp->duplicate_count || lp->filtered_count)
-			printf("[!] Rejected %u invalid, %u filtered and %u duplicate prefixes.\n",
-			       lp->invalid_count, lp->filtered_count, lp->duplicate_count);
+		default:
+			ret = -1;
+			break;
 	}
+
+	if (ret < 0)
+		goto out;
 
 	ret = leek_workers_init();
 	if (ret < 0)
@@ -463,11 +533,6 @@ static int leek_init(void)
 	ret = 0;
 out:
 	return ret;
-
-lp_free:
-	free(lp);
-	ret = -1;
-	goto out;
 }
 
 

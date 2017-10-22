@@ -23,8 +23,8 @@ static uint64_t leek_lookup_mask[LEEK_LENGTH_MAX + 1] = {
 	0x0000000000000000,
 };
 
-/* This function might be unused by specific implementations. */
-static int __unused leek_lookup(const union leek_rawaddr *addr)
+/* These functions might be unused by specific implementations. */
+static int __unused leek_lookup_multi(const union leek_rawaddr *addr)
 {
 	struct leek_prefix_bucket *bucket = &leek.prefixes->bucket[addr->index];
 	uint64_t val;
@@ -40,6 +40,20 @@ static int __unused leek_lookup(const union leek_rawaddr *addr)
 	}
 	return 0;
 }
+
+static int __unused leek_lookup_single(const union leek_rawaddr *addr)
+{
+	unsigned int len = leek.config.len_min;
+	uint64_t val;
+
+	if (leek.address.index == addr->index) {
+		val = addr->suffix | leek_lookup_mask[len];
+		if (unlikely(leek.address.suffix == val))
+			return leek.config.len_min;
+	}
+	return 0;
+}
+
 
 #if defined(__AVX2__) || defined(__SSSE3__)
 # include "leek_sha1_specific.c"

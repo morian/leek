@@ -103,6 +103,21 @@ out:
 }
 
 
+int leek_prefix_parse(union leek_rawaddr *laddr, const char *word, unsigned int len)
+{
+	char buffer[LEEK_ADDRESS_LEN + 1] = { 0 };
+
+	/* This enables a safe copy of the string. */
+	strncpy(buffer, word, len);
+
+	if (!leek_word_validate(buffer, len))
+		return -1;
+
+	leek_base32_dec(laddr->buffer, buffer);
+	return 0;
+}
+
+
 static long double leek_hash_count_target(unsigned int pfx_cnt_per_size[LEEK_ADDRESS_LEN])
 {
 	long double prob_found_1 = 0.0;
@@ -139,6 +154,9 @@ static int leek_prefixes_parse(struct leek_prefixes *lp, FILE *fp,
 		length = ret - 1;
 		line[length] = 0;
 
+		/* Clear out all the stuff beyond line data */
+		for (unsigned int i = length + 1; i < LEEK_ADDRESS_LEN + 1; ++i)
+			line[i] = 0;
 
 		if (length < flt_min || length > flt_max)
 			lp->filtered_count++;

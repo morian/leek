@@ -399,8 +399,8 @@ out:
 	return ret;
 }
 
-
-int __hot __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
+                                unsigned int mode)
 {
 	uint32_t increment = 1 << ((8 * lc->sha1.expo_pos) + VECX_INCR_ORDER);
 	unsigned int iter_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> 4;
@@ -455,8 +455,21 @@ int __hot __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 
 				result = &lc->sha1.R[r].addr;
 
-				length = leek_lookup(result);
-				if (length) {
+				/* These branches are simplified in different hard copies of this function */
+				switch (mode) {
+					case LEEK_MODE_MULTI:
+						length = leek_lookup_multi(result);
+						break;
+
+					case LEEK_MODE_SINGLE:
+						length = leek_lookup_single(result);
+						break;
+
+					/* We don't need a 'default' case here since our parameter is a
+					 * const value and this function is static. */
+				}
+
+				if (unlikely(length)) {
 					/* What's my e again? */
 					uint32_t e = 2 * (VECX_LANE_COUNT * (o * inner_count + i) + r) + 1;
 					ret = leek_address_check(lc, e, result);
@@ -475,4 +488,26 @@ int __hot __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 	}
 
 	return 0;
+}
+
+int __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+{
+	int ret;
+
+	/* This dumb thing (and the __flatten attribute) enables code cloning of __leek_exhaust */
+	switch (leek.config.mode) {
+		case LEEK_MODE_MULTI:
+			ret = __leek_exhaust(wk, lc, LEEK_MODE_MULTI);
+			break;
+
+		case LEEK_MODE_SINGLE:
+			ret = __leek_exhaust(wk, lc, LEEK_MODE_SINGLE);
+			break;
+
+		default:
+			ret = 0;
+			break;
+	}
+
+	return ret;
 }

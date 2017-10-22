@@ -9,8 +9,6 @@
 # define VEC_CACHELINE_SIZE      64 /* hardwired to 512 bits */
 # define __align(x)              __attribute__((aligned((x))))
 # define __cache_align           __align(VEC_CACHELINE_SIZE)
-# define __flatten               __attribute__((flatten))
-# define __hot                   __attribute__((hot))
 
 /* SHA1 constants */
 # define VEC_SHA1_H0    0x67452301
