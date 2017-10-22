@@ -168,7 +168,7 @@ static void leek_exhaust_precalc_2(struct leek_crypto *lc, vecx vexpo_1)
 
 
 /* Customized hash function (final block) */
-static void __hot leek_sha1_finalize(struct leek_crypto *lc, vecx vexpo_0)
+static void leek_sha1_finalize(struct leek_crypto *lc, vecx vexpo_0)
 {
 	void *resptr = (void *) &lc->sha1.R;
 	vecx a, b, c, d, e;
@@ -400,7 +400,7 @@ out:
 }
 
 
-int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+int __hot __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 {
 	uint32_t increment = 1 << ((8 * lc->sha1.expo_pos) + VECX_INCR_ORDER);
 	unsigned int iter_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> 4;

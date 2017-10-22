@@ -85,6 +85,9 @@ struct leek_context {
 	struct timespec ts_start;
 	struct timespec ts_last;
 	uint64_t last_hash_count;
+
+	/* Probability to have a hit on a single hash try. */
+	long double prob_find_1;
 };
 
 /* Enumeration of individual flags from configuration */

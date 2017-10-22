@@ -432,6 +432,7 @@ static int leek_init(void)
 	/* Update min and max length based on the loaded dictionary */
 	leek.config.len_min = lp->length_min;
 	leek.config.len_max = lp->length_max;
+	leek.prob_find_1 = lp->prob_find_1;
 	leek.prefixes = lp;
 
 	ret = leek_sha1_init();
@@ -524,7 +525,7 @@ static uint64_t leek_metric_estimate_get(uint64_t hash_count, uint64_t elapsed,
 	uint64_t tgt_time = 0;
 
 	tgt_time_f =
-		(elapsed * logl(1 - (tgt_probability / 100)) / logl(1 - leek.prefixes->prob_find_1)) / hash_count;
+		(elapsed * logl(1 - (tgt_probability / 100)) / logl(1 - leek.prob_find_1)) / hash_count;
 	tgt_time = tgt_time_f;
 	return tgt_time;
 }
@@ -571,7 +572,7 @@ static void leek_metric_display(void)
 	leek_metric_timer_display("   Elapsed:", elapsed);
 
 	if (leek.last_hash_count && !leek.found_hash_count) {
-		prob_found = 100.0 * (1.0 -  powl(1.0 - leek.prefixes->prob_find_1, leek.last_hash_count));
+		prob_found = 100.0 * (1.0 -  powl(1.0 - leek.prob_find_1, leek.last_hash_count));
 
 		/* Probability to already have a result. */
 		printf(" (%6.2Lf%%)", prob_found);
