@@ -23,19 +23,36 @@ static uint64_t leek_lookup_mask[LEEK_LENGTH_MAX + 1] = {
 	0x0000000000000000,
 };
 
+
+static int leek_bucket_lookup(const struct leek_prefix_bucket *bucket, uint64_t val)
+{
+	int max = bucket->cur_count - 1;
+	int min = 0;
+	int piv;
+
+	while (min < max) {
+		piv = (min + max) / 2;
+
+		if (bucket->data[piv] < val)
+			min = piv + 1;
+		else
+			max = piv - 1;
+	}
+
+	return (bucket->data[max] == val);
+}
+
 /* These functions might be unused by specific implementations. */
 static int __unused leek_lookup_multi(const union leek_rawaddr *addr)
 {
 	struct leek_prefix_bucket *bucket = &leek.prefixes->bucket[addr->index];
 	uint64_t val;
 
-	if (bucket->data) {
+	if (bucket->cur_count) {
 		for (unsigned int i = leek.config.len_min; i <= leek.config.len_max; ++i) {
 			val = addr->suffix | leek_lookup_mask[i];
-			if (bsearch(&val, bucket->data, bucket->cur_count, sizeof(val),
-			            &leek_prefixes_suffix_cmp)) {
-				return i; /* return found size */
-			}
+			if (leek_bucket_lookup(bucket, val))
+				return i;
 		}
 	}
 	return 0;

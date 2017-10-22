@@ -190,7 +190,7 @@ out:
 }
 
 
-int leek_prefixes_suffix_cmp(const void *a, const void *b)
+static int leek_prefixes_suffix_cmp(const void *a, const void *b)
 {
 	const uint64_t *va = a;
 	const uint64_t *vb = b;
