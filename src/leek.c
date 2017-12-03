@@ -39,13 +39,14 @@ static void leek_usage(FILE *fp, const char *prog_name)
 {
 	fprintf(fp, "Usage: %s [OPTIONS]\n", prog_name);
 	fprintf(fp, "\n");
-	fprintf(fp, " -i, --input        input file containing prefixes.\n");
 	fprintf(fp, " -p, --prefix       single prefix attack.\n");
-	fprintf(fp, " -o, --output       output file directory (default prints on stdout).\n");
-	fprintf(fp, " -l, --length=N:M   length range filter [%u-%u].\n",
+	fprintf(fp, " -i, --input        input dictionary with prefixes.\n");
+	fprintf(fp, " -o, --output       output directory (default prints on stdout).\n");
+	fprintf(fp, " -l, --length=N:M   length filter for dictionary attack [%u-%u].\n",
 	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
-	fprintf(fp, " -t, --threads=#    number of threads to start (default is 1).\n");
+	fprintf(fp, " -t, --threads=#    worker threads count (default is 1).\n");
 	fprintf(fp, " -s, --stop(=1)     stop processing after # success (default is infinite).\n");
+	fprintf(fp, " -b, --benchmark    show average speed instead of current speed.\n");
 	fprintf(fp, " -v, --verbose      show verbose run information.\n");
 	fprintf(fp, " -h, --help         show this help and exit.\n");
 	fprintf(fp, "\n");
@@ -525,9 +526,6 @@ static int leek_init(void)
 	ret = leek_workers_init();
 	if (ret < 0)
 		goto out;
-
-	if (leek.config.flags & LEEK_FLAG_VERBOSE)
-		printf("[>] There is no right and wrong. There's only fun and boring.\n");
 
 	ret = 0;
 out:
