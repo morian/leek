@@ -1,0 +1,48 @@
+language: c
+dist: trusty
+matrix:
+  include:
+    - os: linux
+      addons:
+        apt:
+          packages:
+            - libssl-dev
+      env:
+        - MATRIX_EVAL="CC=gcc"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libssl-dev
+            - gcc-5
+      env:
+        - MATRIX_EVAL="CC=gcc-5"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libssl-dev
+            - gcc-6
+      env:
+        - MATRIX_EVAL="CC=gcc-6"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libssl-dev
+            - gcc-7
+      env:
+        - MATRIX_EVAL="CC=gcc-7"
+before_script:
+  - eval "${MATRIX_EVAL}"
+  - ${CC} --version
+script:
+  - make
+  - ./src/leek --help
+  - ./src/leek --benchmark --stop --verbose --threads 2 --prefix travis
