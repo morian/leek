@@ -1,26 +1,11 @@
-CFLAGS    := -std=gnu11 -pipe -O3 -march=native        \
-             -Wall -Werror -Wextra -Wshadow -Wformat=2 \
-             -Wnested-externs -Wchar-subscripts
-LDLIBS    := -lm -lssl -lcrypto
-LDFLAGS   := -pthread
+# Available binary files.
+BINARIES    := leek
+PASSTHROUGH := all clean
+TARGETS     := $(PASSTHROUGH) $(BINARIES)
+SRCDIR      := src/
 
-LEEK_BIN  := leek
-LEEK_OBJS := leek.o leek_helper.o leek_worker.o leek_exhaust.o
-LEEK_SHA1 := $(wildcard leek_sha1_*.c)
-BINARIES  := $(LEEK_BIN)
-OBJECTS   := $(LEEK_OBJS)
-
-$(LEEK_BIN): $(LEEK_OBJS)
-
-PHYONY += all
-all: $(BINARIES)
-
-# SHA1 dependencies.
-leek_exhaust.o: $(LEEK_SHA1)
-
-
-PHONY += clean
-clean:
-	rm -f $(BINARIES) $(LIBRARIES) $(OBJECTS)
+PHONY += $(PASSTHROUGH)
+$(TARGETS):
+	$(MAKE) -C $(SRCDIR) $@
 
 .PHONY: $(PHONY)

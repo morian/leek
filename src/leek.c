@@ -201,7 +201,6 @@ static int leek_options_parse(int argc, char *argv[])
 		ret = -1;
 	}
 
-
 	if ((leek.config.flags & LEEK_FLAG_STOP) && !leek.config.stop_count) {
 		fprintf(stderr, "[-] error: stop argument cannot be 0.\n");
 		ret = -1;
@@ -407,7 +406,7 @@ static int leek_init_prefix(void)
 	int ret = -1;
 
 	if (length < leek.config.len_min || length > leek.config.len_max) {
-		fprintf(stderr, "[+] error: input prefix is out of range.\n");
+		fprintf(stderr, "[-] error: input prefix is out of range.\n");
 		goto out;
 	}
 
@@ -655,7 +654,13 @@ static void leek_metric_display(void)
 
 int main(int argc, char *argv[])
 {
-	int ret;
+	int ret = -1;
+
+	/* Show help when no option is provided */
+	if (argc < 2) {
+		leek_usage(stdout, argv[0]);
+		goto out;
+	}
 
 	ret = leek_options_parse(argc, argv);
 	if (ret < 0)
