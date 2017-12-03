@@ -100,7 +100,7 @@ Leek provides a few metrics during the generation:
    - **Speed**: Generation speed in Hash per second (candidate/s)
    - **Total**: Number of checked candidates
    - **T(avg)**: Estimated time to reach a 50% success probability
-   - **Elapsed**: Elapsed time in generation so far
+   - **Elapsed**: Elapsed time in generation so far with probability to already have a success
 
 The underlying generation process is just a matter of luck and time.
 
@@ -133,6 +133,37 @@ Coarse average time (50% chances) to generate a .onion with a given prefix lengt
 | 10          | 55 days       |
 | 11          | 5 years       |
 | 12          | 155 years     |
+
+
+FAQ
+---
+
+### How do I check whether AVX2 is available on my CPU?
+
+AVX2 instruction set is available since 2014 and Haswell processors (i3/i5/i7 4000 serie).
+It is also supported on AMD processors since 2015 and the Excavator family.
+Alternatively, you can simply run the following command:
+```sh
+lscpu | grep avx2
+```
+
+### How do I check whether SSSE3 is available on my CPU?
+
+SSSE3 is available on all Intel processors since 2007 and the Core microarchitecture.
+When in doubt, feel free to run the following command:
+```sh
+lscpu | grep ssse3
+```
+
+### Can I package Leek?
+
+In the actual state this might be hard since vector choice is performed at compile time.
+This would require a non-trivial redesign to make this choice at run time with no performance hit.
+
+
+### Will you port it to any Windows/MacOSX?
+
+No, please feel free to use a WSL or any kind of virtual machine.
 
 
    [Windows Subsystem for Linux]: <https://msdn.microsoft.com/en-us/commandline/wsl/about>
