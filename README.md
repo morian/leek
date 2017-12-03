@@ -14,15 +14,16 @@ Search features include:
 There is no regex based lookup as you might find in eschalot, mostly because of the lack of interest.
 
 Some special thanks:
-	- Leek software architecture is inspired by [eschalot] (itself forked from [shallot])
-	- Original SHA1 vectorized implementation was provided by a friend and partially reworked
+   - Leek software architecture is inspired by [eschalot] (itself forked from [shallot])
+   - Original SHA1 vectorized implementation was provided by a friend and partially reworked
 
 
 Requirements
 ------------
-   - [OpenSSL]: For RSA generation and SHA1 rechecks
-   - [Linux]: Not been tested anywhere else
+   - [OpenSSL]: For RSA generation and SHA1 rechecks (`libssl-dev` on Debian)
    - [GCC]: Because we use GCC intrinsics
+
+This code targets Linux systems but also works under [Windows Subsystem for Linux] with no noticeable performance drawback.
 
 
 Compilation & First run
@@ -103,6 +104,7 @@ A few performance measurements on different target CPUs:
 
 | CPU      | Base Freq.  | Impl.  | Thread | Performance |
 |----------|-------------|--------|--------|-------------|
+| i7-7700K | 4.20GHz     | AVX2   | 8      | 275MH/s     |
 | i7-6700  | 3.40GHz     | AVX2   | 8      | 238MH/s     |
 | i5-4690S | 3.20GHz     | AVX2   | 4      | 200MH/s     |
 | i7-4950U | 1.70GHz     | AVX2   | 4      |  79MH/s     |
@@ -128,7 +130,7 @@ Coarse average time (50% chances) to generate a .onion with a given prefix lengt
 | 11          | 5 years       |
 | 12          | 155 years     |
 
-
+   [Windows Subsystem for Linux]: <https://msdn.microsoft.com/en-us/commandline/wsl/about>
    [TOR]: <https://www.torproject.org>
    [OpenSSL]: <https://www.openssl.org>
    [Linux]: <https://www.linux.org>
