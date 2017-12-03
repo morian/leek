@@ -1,6 +1,10 @@
 Leek
 ====
 
+[![Travis Status][travis_img]][travis_url]
+[![MIT License][license_img]][license_url]
+
+
 About
 -----
 Leek is another tool to generate custom .onion addresses for [TOR] [hidden services](https://www.torproject.org/docs/hidden-services).
@@ -130,6 +134,7 @@ Coarse average time (50% chances) to generate a .onion with a given prefix lengt
 | 11          | 5 years       |
 | 12          | 155 years     |
 
+
    [Windows Subsystem for Linux]: <https://msdn.microsoft.com/en-us/commandline/wsl/about>
    [TOR]: <https://www.torproject.org>
    [OpenSSL]: <https://www.openssl.org>
@@ -137,3 +142,7 @@ Coarse average time (50% chances) to generate a .onion with a given prefix lengt
    [GCC]: <https://gcc.gnu.org>
    [eschalot]: <https://github.com/ReclaimYourPrivacy/eschalot>
    [shallot]: <https://github.com/katmagic/Shallot>
+   [travis_img]: <https://travis-ci.org/morian/leek.svg?branch=master>
+   [travis_url]: <https://travis-ci.org/morian/leek>
+   [license_img]: <https://img.shields.io/badge/license-MIT-blue.svg>
+   [license_url]: <https://github.com/morian/leek/blob/master/LICENSE>
