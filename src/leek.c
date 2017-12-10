@@ -616,7 +616,7 @@ static uint64_t leek_metric_estimate_get(uint64_t hash_count, uint64_t elapsed,
 
 static void leek_metric_display(void)
 {
-	static const unsigned char anim_chars[] = {'-','/','|','\\'};
+	static const unsigned char anim_chars[] = {'-','\\','|','/'};
 	static unsigned int anim_id = 0;
 
 	uint64_t hash_diff = leek_hashcount_update();

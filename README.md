@@ -25,18 +25,31 @@ Some special thanks:
 Requirements
 ------------
    - [OpenSSL]: For RSA generation and SHA1 rechecks (`libssl-dev` on Debian)
-   - [GCC]: Because we use GCC intrinsics
+   - [GCC]: Because we use GCC intrinsics and some specific optimizations.
 
 This code targets Linux systems but also works under [Windows Subsystem for Linux] with no noticeable performance drawback.
 
 
 Compilation & First run
 -----------------------
+
+Default compilation produces a re-usable binary that you can transfer to any other Linux system, regardless of the underlying CPU support.
+
 ```sh
 make
 cd src
 ./leek --help
 ```
+
+You can also get a slight increase in performances building a machine-specific binary using additional `CFLAGS`.
+The generated binary will most likely not work on older machines though.
+
+```sh
+make CFLAGS=-march=native
+cd src
+./leek --help
+```
+
 
 Options
 -------
@@ -46,11 +59,17 @@ Options
 	 -i, --input        input dictionary with prefixes.
 	 -o, --output       output directory (default prints on stdout).
 	 -l, --length=N:M   length filter for dictionary attack [4-16].
-	 -t, --threads=#    worker threads count (default is 1).
+	 -t, --threads=#    worker threads count (default is all cores).
+	 -I, --impl=#       select implementation (see bellow).
 	 -s, --stop(=1)     stop processing after # success (default is infinite).
 	 -b, --benchmark    show average speed instead of current speed.
 	 -v, --verbose      show verbose run information.
 	 -h, --help         show this help and exit.
+	
+	Available implementations:
+		OpenSSL
+		SSSE3
+		AVX2 (default)
 
 Usage
 -----
@@ -104,20 +123,21 @@ Leek provides a few metrics during the generation:
 
 The underlying generation process is just a matter of luck and time.
 
-A few performance measurements on different target CPUs:
+A few performance measurements (in MH/s) on different target CPUs.
 
-| CPU      | Base Freq.  | Impl.  | Thread | Performance |
-|----------|-------------|--------|--------|-------------|
-| i7-7700K | 4.20GHz     | AVX2   | 8      | 275MH/s     |
-| i7-6700  | 3.40GHz     | AVX2   | 8      | 238MH/s     |
-| i5-4690S | 3.20GHz     | AVX2   | 4      | 200MH/s     |
-| i7-4950U | 1.70GHz     | AVX2   | 4      |  79MH/s     |
+| CPU      | Base Freq.  | Thread | OpenSSL |   SSSE3 |    AVX2 |
+|----------|-------------|--------|---------|---------|---------|
+| i7-7700K | 4.20GHz     | 8      |     275 |     275 |     275 |
+| i7-6700  | 3.40GHz     | 8      |      43 |     105 |     254 |
+| i5-4690S | 3.20GHz     | 4      |      30 |      90 |     190 |
+| i7-4950U | 1.70GHz     | 4      |      13 |      36 |      79 |
 
-All performance measures are taken after an elapsed time of 2 minutes, using the following command:
+All performance measures are taken after an elapsed time of 60 seconds, using the following command:
 ```sh
-./leek --benchmark --prefix leekleek --threads=X
+./leek --benchmark --prefix leekleek
 ```
-Where `X` is the number of logical cores on the considered CPU.
+Performances are all measured using any available GCC version, and default compile flags from leek Makefile.
+Note that leek uses all CPU cores available by default.
 
 
 Coarse average time (50% chances) to generate a .onion with a given prefix length on a 150MH/s configuration:
