@@ -421,8 +421,8 @@ out:
 	return ret;
 }
 
-static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
-                                unsigned int mode)
+static int __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
+                          unsigned int mode)
 {
 	struct leek_vecx *lv = lc->private_data;
 	uint32_t increment = 1 << ((8 * lv->expo_pos) + VECX_INCR_ORDER);
