@@ -1,7 +1,7 @@
-CFLAGS    += -std=gnu11 -pipe -O3 -Wall -Werror -Wextra -Wshadow \
-             -Wformat=2 -Wnested-externs -Wchar-subscripts
-LDLIBS    := -lm -lssl -lcrypto
-LDFLAGS   += -pthread
+override CFLAGS  += -std=gnu11 -pipe -O3 -Wall -Werror -Wextra -Wshadow \
+                    -Wformat=2 -Wnested-externs -Wchar-subscripts
+override LDFLAGS += -pthread
+override LDLIBS  += -lm -lssl -lcrypto
 
 LEEK_IMPL := $(wildcard leek_impl_*.c)
 LEEK_OBJS := leek.o leek_helper.o leek_worker.o leek_impl.o

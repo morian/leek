@@ -36,16 +36,6 @@ void leek_implementation_select_best(void);
 /* Select implementation by name */
 int leek_implementation_select(const char *name);
 
-
-/** Hash lookup functions **/
-
-/* Perform lookup for a single prefix */
-int leek_lookup_single(const union leek_rawaddr *addr);
-
-/* Perform lookup for a list of prefixes */
-int leek_lookup_multi(const union leek_rawaddr *addr);
-
-
 /** All known implementations (build time) **/
 extern const struct leek_implementation leek_impl_openssl;
 extern const struct leek_implementation leek_impl_ssse3;

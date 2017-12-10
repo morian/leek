@@ -1,134 +1,547 @@
 #ifndef __LEEK_VECX_H
 # define __LEEK_VECX_H
-# include <stdint.h>
+#include <stdint.h>
+#include <string.h>
 
-/* VEC shared macros and constants */
-# define VEC_SHA1_LBLOCK_SIZE    16
-# define VEC_SHA1_BLOCK_SIZE     (VEC_SHA1_LBLOCK_SIZE * 4)
-# define VEC_RAWADDR_LEN         16
-# define VEC_CACHELINE_SIZE      64 /* hardwired to 512 bits */
-# define __align(x)              __attribute__((aligned((x))))
-# define __cache_align           __align(VEC_CACHELINE_SIZE)
-
-/* SHA1 constants */
-# define VEC_SHA1_H0    0x67452301
-# define VEC_SHA1_H1    0xefcdab89
-# define VEC_SHA1_H2    0x98badcfe
-# define VEC_SHA1_H3    0x10325476
-# define VEC_SHA1_H4    0xc3d2e1f0
-
-# define VEC_SHA1_K1    0x5a827999
-# define VEC_SHA1_K2    0x6ed9eba1
-# define VEC_SHA1_K3    0x8f1bbcdc
-# define VEC_SHA1_K4    0xca62c1d6
-
-/* Let's enhance these sets of macros with relevant defines for SHA1 */
-# define VECX_LANE_COUNT    (1 << VECX_LANE_ORDER)
-# define VECX_WORD_SIZE      (4 * VECX_LANE_COUNT)
-# define VECX_INCR_ORDER     (VECX_LANE_ORDER + 1)
-
-# define vecx_add3(a, ...) vecx_add(a, vecx_add(__VA_ARGS__))
-# define vecx_add4(a, ...) vecx_add(a, vecx_add3(__VA_ARGS__))
-# define vecx_add5(a, ...) vecx_add(a, vecx_add4(__VA_ARGS__))
-# define vecx_xor2(a, ...) vecx_xor(a, __VA_ARGS__)
-# define vecx_xor3(a, ...) vecx_xor(a, vecx_xor2(__VA_ARGS__))
-# define vecx_xor4(a, ...) vecx_xor(a, vecx_xor3(__VA_ARGS__))
-
-# define vecx_F1(x, y, z) vecx_or(vecx_and(x, y), vecx_anot(x, z))
-# define vecx_F2(x, y, z) vecx_xor3(x, y, z)
-# define vecx_F3(x, y, z) vecx_or(vecx_and(x, y), vecx_and(z, vecx_xor(x, y)))
-# define vecx_F4(x, y, z) vecx_xor3(x, y, z)
+#include "leek_vecx_core.h"
+#include "leek_lookup.h"
 
 
-/** Original round **/
-# define vecx_W(x)   W[(x) & 15]         /* W is our internal working buffer name */
-# define vecx_SRC(x) vecx_bswap(in[x])   /* in is our input data name */
-# define vecx_MIX(x) vecx_rol(vecx_xor4(vecx_W(x + 13), vecx_W(x + 8), vecx_W(x + 2), vecx_W(x)), 1)
+/* This avoids unwanted instructions in this function. */
+#pragma GCC push_options
+static int leek_vecx_available(void)
+{
+	return __builtin_cpu_supports(VECX_IMPL_ISA);
+}
 
-/* Original round, W buffer is limited to 16 items */
-# define vecx_ROUND(f, s, x, a, b, c, d, e, k)                      \
-	do{                                                               \
-		vecx tmp = s(x);                                                \
-		vecx_W(x) = tmp;                                                \
-		e = vecx_add5(e, tmp, vecx_rol(a, 5), f(b, c, d), vecx_set(k)); \
-		b = vecx_ror(b, 2);                                             \
-	} while (0)
+#pragma GCC pop_options
+static void *leek_vecx_init(void)
+{
+	struct leek_vecx *lv;
+
+	lv = aligned_alloc(LEEK_CACHELINE_SZ, sizeof(*lv));
+	if (!lv)
+		goto out;
+	memset(lv, 0, sizeof(*lv));
+
+out:
+	return lv;
+}
+
+static void leek_vecx_reset(struct leek_vecx *lv)
+{
+	lv->H[0] = vecx_set(VEC_SHA1_H0);
+	lv->H[1] = vecx_set(VEC_SHA1_H1);
+	lv->H[2] = vecx_set(VEC_SHA1_H2);
+	lv->H[3] = vecx_set(VEC_SHA1_H3);
+	lv->H[4] = vecx_set(VEC_SHA1_H4);
+}
+
+/* Generic hash function (used for the first blocks) */
+static void leek_vecx_update(struct leek_vecx *lv)
+{
+	const vecx *in = (const vecx *) lv->block;
+	vecx W[16];
+	vecx a, b, c, d, e;
+
+	a = lv->H[0];
+	b = lv->H[1];
+	c = lv->H[2];
+	d = lv->H[3];
+	e = lv->H[4];
+
+	vecx_ROUND(vecx_F1, vecx_SRC,  0, a, b, c, d, e, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  1, e, a, b, c, d, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  2, d, e, a, b, c, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  3, c, d, e, a, b, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  4, b, c, d, e, a, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  5, a, b, c, d, e, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  6, e, a, b, c, d, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  7, d, e, a, b, c, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  8, c, d, e, a, b, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC,  9, b, c, d, e, a, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC, 10, a, b, c, d, e, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC, 11, e, a, b, c, d, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC, 12, d, e, a, b, c, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC, 13, c, d, e, a, b, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC, 14, b, c, d, e, a, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_SRC, 15, a, b, c, d, e, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_MIX, 16, e, a, b, c, d, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_MIX, 17, d, e, a, b, c, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_MIX, 18, c, d, e, a, b, VEC_SHA1_K1);
+	vecx_ROUND(vecx_F1, vecx_MIX, 19, b, c, d, e, a, VEC_SHA1_K1);
+
+	vecx_ROUND(vecx_F2, vecx_MIX, 20, a, b, c, d, e, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 21, e, a, b, c, d, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 22, d, e, a, b, c, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 23, c, d, e, a, b, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 24, b, c, d, e, a, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 25, a, b, c, d, e, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 26, e, a, b, c, d, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 27, d, e, a, b, c, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 28, c, d, e, a, b, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 29, b, c, d, e, a, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 30, a, b, c, d, e, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 31, e, a, b, c, d, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 32, d, e, a, b, c, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 33, c, d, e, a, b, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 34, b, c, d, e, a, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 35, a, b, c, d, e, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 36, e, a, b, c, d, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 37, d, e, a, b, c, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 38, c, d, e, a, b, VEC_SHA1_K2);
+	vecx_ROUND(vecx_F2, vecx_MIX, 39, b, c, d, e, a, VEC_SHA1_K2);
+
+	vecx_ROUND(vecx_F3, vecx_MIX, 40, a, b, c, d, e, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 41, e, a, b, c, d, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 42, d, e, a, b, c, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 43, c, d, e, a, b, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 44, b, c, d, e, a, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 45, a, b, c, d, e, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 46, e, a, b, c, d, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 47, d, e, a, b, c, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 48, c, d, e, a, b, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 49, b, c, d, e, a, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 50, a, b, c, d, e, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 51, e, a, b, c, d, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 52, d, e, a, b, c, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 53, c, d, e, a, b, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 54, b, c, d, e, a, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 55, a, b, c, d, e, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 56, e, a, b, c, d, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 57, d, e, a, b, c, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 58, c, d, e, a, b, VEC_SHA1_K3);
+	vecx_ROUND(vecx_F3, vecx_MIX, 59, b, c, d, e, a, VEC_SHA1_K3);
+
+	vecx_ROUND(vecx_F4, vecx_MIX, 60, a, b, c, d, e, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 61, e, a, b, c, d, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 62, d, e, a, b, c, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 63, c, d, e, a, b, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 64, b, c, d, e, a, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 65, a, b, c, d, e, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 66, e, a, b, c, d, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 67, d, e, a, b, c, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 68, c, d, e, a, b, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 69, b, c, d, e, a, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 70, a, b, c, d, e, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 71, e, a, b, c, d, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 72, d, e, a, b, c, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 73, c, d, e, a, b, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 74, b, c, d, e, a, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 75, a, b, c, d, e, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 76, e, a, b, c, d, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 77, d, e, a, b, c, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 78, c, d, e, a, b, VEC_SHA1_K4);
+	vecx_ROUND(vecx_F4, vecx_MIX, 79, b, c, d, e, a, VEC_SHA1_K4);
+
+	lv->H[0] = vecx_add(a, lv->H[0]);
+	lv->H[1] = vecx_add(b, lv->H[1]);
+	lv->H[2] = vecx_add(c, lv->H[2]);
+	lv->H[3] = vecx_add(d, lv->H[3]);
+	lv->H[4] = vecx_add(e, lv->H[4]);
+}
+
+/* Stage1: pre-compute all-time fixed values */
+static void leek_exhaust_precalc_1(struct leek_vecx *lv)
+{
+	const vecx *in = (const vecx *) lv->block;
+	vecx a, b, c, d, e;
+	vecx W[2];
+
+	a = lv->H[0];
+	b = lv->H[1];
+	c = lv->H[2];
+	d = lv->H[3];
+	e = lv->H[4];
+
+	/* Pre-compute the first few rounds here (static data) */
+	vecx_ROUND_O(vecx_F1, vecx_SRC,  0, a, b, c, d, e, VEC_SHA1_K1);
+	vecx_ROUND_O(vecx_F1, vecx_SRC,  1, e, a, b, c, d, VEC_SHA1_K1);
+
+	/* This is partial pre-calculus for round 2 */
+	vecx_ROUND_E(vecx_F1,            2, d, e, a, b, c, VEC_SHA1_K1);
+
+	/* This is very partial pre-calculus or round 3 */
+	lv->PA_C03 = vecx_add3(b, vecx_F1(d, e, a), vecx_set(VEC_SHA1_K1));
+	d = vecx_ror(d, 2);
+
+	/* Store our current state(s) */
+	lv->PW_C00 = W[0];         /* 1st static word */
+	lv->PW_C01 = W[1];         /* 2nd static word */
+
+	lv->PW_C15 = vecx_SRC(15);
+
+	lv->PH[0] = a;
+	lv->PH[1] = b;
+	lv->PH[2] = c;
+	lv->PH[3] = d;
+	lv->PH[4] = e;
+}
 
 
-/** Optimized rounds **/
-# define vecx_LDW(x) W[(x)]              /* Load pre-computed word */
+static void leek_exhaust_precalc_2(struct leek_vecx *lv, vecx vexpo_1)
+{
+	lv->PW_C03 = vexpo_1;
 
-/* Some specific MIX operations (when W data is known to be zero) */
-# define vecx_MX1(x) vecx_rol(         (W[(x)-3]                                ), 1)
-# define vecx_MX3(x) vecx_rol(vecx_xor2(W[(x)-3], W[(x)-8]                      ), 1)
-# define vecx_MX7(x) vecx_rol(vecx_xor3(W[(x)-3], W[(x)-8], W[(x)-14]           ), 1)
-# define vecx_MX9(x) vecx_rol(vecx_xor2(W[(x)-3],                      W[(x)-16]), 1)
-# define vecx_MXC(x) vecx_rol(vecx_xor2(                    W[(x)-14], W[(x)-16]), 1)
-# define vecx_MXF(x) vecx_rol(vecx_xor4(W[(x)-3], W[(x)-8], W[(x)-14], W[(x)-16]), 1)
-
-/* Optimized general round, our W buffer is not limited to 16 items */
-# define vecx_ROUND_O(f, s, x, a, b, c, d, e, k)                    \
-	do{                                                               \
-		vecx tmp = s(x);                                                \
-		W[(x)] = tmp;                                                   \
-		e = vecx_add5(e, tmp, vecx_rol(a, 5), f(b, c, d), vecx_set(k)); \
-		b = vecx_ror(b, 2);                                             \
-	} while (0)
-
-/* Final rounds, no store */
-# define vecx_ROUND_F(f, s, x, a, b, c, d, e, k)                    \
-	do{                                                               \
-		vecx tmp = s(x);                                                \
-		e = vecx_add5(e, tmp, vecx_rol(a, 5), f(b, c, d), vecx_set(k)); \
-		b = vecx_ror(b, 2);                                             \
-	} while (0)
-
-/* Empty data, no load, no store */
-# define vecx_ROUND_E(f, x, a, b, c, d, e, k)                       \
-	do{                                                               \
-		e = vecx_add4(e, vecx_rol(a, 5), f(b, c, d), vecx_set(k));      \
-		b = vecx_ror(b, 2);                                             \
-	} while (0)
-
-# define byte_mask(x)  ((1 << (8 * (x))) - 1)
+	/* Enhance pre-compute for cycle 3 (here we have temporary value for 'b') */
+	lv->PH[1] = vecx_add(lv->PA_C03, vexpo_1);
+}
 
 
-/* 'addr' is 10 bytes but we need to round to the next power of 2
- * This union just ensures that we are will be 16B aligned */
-union vec_rawaddr {
-	uint8_t padding[VEC_RAWADDR_LEN];
-	union leek_rawaddr addr;
-};
+/* Customized hash function (final block) */
+static void leek_vecx_finalize(struct leek_vecx *lv, vecx vexpo_0)
+{
+	void *resptr = (void *) &lv->R;
+	vecx a, b, c, d, e;
+	/* 80 rounds minus the 3 finals */
+	vecx W[77];
+
+	a = lv->PH[0];
+	b = lv->PH[1];
+	c = lv->PH[2];
+	d = lv->PH[3];
+	e = lv->PH[4];
+
+	/* Load pre-computed data */
+	W[0]  = lv->PW_C00;
+	W[1]  = lv->PW_C01;
+	W[2]  = vexpo_0;
+	W[3]  = lv->PW_C03;
+	W[15] = lv->PW_C15;
+
+	/* This finishes round 2 gracefully */
+	c = vecx_add(c, vexpo_0);
+
+	/* This finishes round 3 gracefully as well */
+	b = vecx_add(vecx_rol(c, 5), b);
+
+	/* We choose not to pre-compute words for rounds 17, 20 and 23
+	 * because benchmarks showed a performance regression probably due
+	 * to memory loading. Over-optimization is not worth here. */
+
+	vecx_ROUND_E(vecx_F1,            4, b, c, d, e, a, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,            5, a, b, c, d, e, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,            6, e, a, b, c, d, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,            7, d, e, a, b, c, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,            8, c, d, e, a, b, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,            9, b, c, d, e, a, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,           10, a, b, c, d, e, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,           11, e, a, b, c, d, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,           12, d, e, a, b, c, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,           13, c, d, e, a, b, VEC_SHA1_K1);
+	vecx_ROUND_E(vecx_F1,           14, b, c, d, e, a, VEC_SHA1_K1);
+	vecx_ROUND_F(vecx_F1, vecx_LDW, 15, a, b, c, d, e, VEC_SHA1_K1);
+
+	vecx_ROUND_O(vecx_F1, vecx_MXC, 16, e, a, b, c, d, VEC_SHA1_K1);
+	vecx_ROUND_O(vecx_F1, vecx_MXC, 17, d, e, a, b, c, VEC_SHA1_K1);
+	vecx_ROUND_O(vecx_F1, vecx_MX9, 18, c, d, e, a, b, VEC_SHA1_K1);
+	vecx_ROUND_O(vecx_F1, vecx_MX9, 19, b, c, d, e, a, VEC_SHA1_K1);
+
+	vecx_ROUND_O(vecx_F2, vecx_MX1, 20, a, b, c, d, e, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX1, 21, e, a, b, c, d, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX1, 22, d, e, a, b, c, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX3, 23, c, d, e, a, b, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX3, 24, b, c, d, e, a, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX3, 25, a, b, c, d, e, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX3, 26, e, a, b, c, d, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX3, 27, d, e, a, b, c, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX3, 28, c, d, e, a, b, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX7, 29, b, c, d, e, a, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MX7, 30, a, b, c, d, e, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 31, e, a, b, c, d, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 32, d, e, a, b, c, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 33, c, d, e, a, b, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 34, b, c, d, e, a, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 35, a, b, c, d, e, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 36, e, a, b, c, d, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 37, d, e, a, b, c, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 38, c, d, e, a, b, VEC_SHA1_K2);
+	vecx_ROUND_O(vecx_F2, vecx_MXF, 39, b, c, d, e, a, VEC_SHA1_K2);
+
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 40, a, b, c, d, e, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 41, e, a, b, c, d, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 42, d, e, a, b, c, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 43, c, d, e, a, b, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 44, b, c, d, e, a, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 45, a, b, c, d, e, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 46, e, a, b, c, d, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 47, d, e, a, b, c, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 48, c, d, e, a, b, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 49, b, c, d, e, a, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 50, a, b, c, d, e, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 51, e, a, b, c, d, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 52, d, e, a, b, c, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 53, c, d, e, a, b, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 54, b, c, d, e, a, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 55, a, b, c, d, e, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 56, e, a, b, c, d, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 57, d, e, a, b, c, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 58, c, d, e, a, b, VEC_SHA1_K3);
+	vecx_ROUND_O(vecx_F3, vecx_MXF, 59, b, c, d, e, a, VEC_SHA1_K3);
+
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 60, a, b, c, d, e, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 61, e, a, b, c, d, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 62, d, e, a, b, c, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 63, c, d, e, a, b, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 64, b, c, d, e, a, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 65, a, b, c, d, e, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 66, e, a, b, c, d, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 67, d, e, a, b, c, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 68, c, d, e, a, b, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 69, b, c, d, e, a, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 70, a, b, c, d, e, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 71, e, a, b, c, d, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 72, d, e, a, b, c, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 73, c, d, e, a, b, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 74, b, c, d, e, a, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 75, a, b, c, d, e, VEC_SHA1_K4);
+	vecx_ROUND_O(vecx_F4, vecx_MXF, 76, e, a, b, c, d, VEC_SHA1_K4);
+	vecx_ROUND_F(vecx_F4, vecx_MXF, 77, d, e, a, b, c, VEC_SHA1_K4);
+	vecx_ROUND_F(vecx_F4, vecx_MXF, 78, c, d, e, a, b, VEC_SHA1_K4);
+	vecx_ROUND_F(vecx_F4, vecx_MXF, 79, b, c, d, e, a, VEC_SHA1_K4);
+
+	/* We keep the first 3 words (12B) as we only need 10B for this attack */
+	a = vecx_add(a, lv->H[0]);
+	b = vecx_add(b, lv->H[1]);
+	c = vecx_add(c, lv->H[2]);
+	/* 'd' contains garbage but we will not read it anyway */
+
+	vecx_transpose(a, b, c, d);
+
+	/* Store all output results */
+	vecx_store(resptr + 0 * VECX_WORD_SIZE, vecx_bswap(a));
+	vecx_store(resptr + 1 * VECX_WORD_SIZE, vecx_bswap(b));
+	vecx_store(resptr + 2 * VECX_WORD_SIZE, vecx_bswap(c));
+	vecx_store(resptr + 3 * VECX_WORD_SIZE, vecx_bswap(d));
+}
 
 
-struct leek_vecx {
-	/* Internal state for "LANE_COUNT" SHA1 blocks (update only) */
-	uint8_t block[VECX_LANE_COUNT * VEC_SHA1_BLOCK_SIZE];
+static void leek_vecx_block_finalize(struct leek_vecx *lv, const void *ptr,
+                                     size_t total_len)
+{
+	const uint32_t *ptr32 = ptr;
+	size_t len = total_len % VEC_SHA1_BLOCK_SIZE;
+	size_t len32 = len >> 2;
+	size_t remaining;
+	size_t i;
 
-	/* Where the exponent is located (MSB) */
-	/* This also sets the number of static rounds */
-	unsigned int expo_round;
-	/* Where the exponent starts located in the last 32b word (0 to 3)*/
-	unsigned int expo_pos;
+	for (i = 0; i < len32; ++i)
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(ptr32[i]));
 
-	/* Hash state before last block */
-	vecx H[5];
+	/* Write the last word and try to finalize stuff */
+	remaining = len - 4 * i;
+	if (remaining) {
+		uint32_t mask = (1 << (8 * remaining)) - 1;
+		uint32_t sha1_end = 0x80 << (8 * remaining);
+		uint32_t value = (ptr32[i] & mask) | sha1_end;
 
-	/* Base exponent snapshot (little-endian, High, Low) */
-	vecx vexpo[2];
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(value));
 
-	/* Pre-computed values (post stage 1) */
-	vecx __cache_align PH[5]; /* Values a, b, c, d, e */
+		lv->expo_pos = 4 - remaining;
+		lv->expo_round = i - 1;
+	}
+	else {
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(0x80));
+		lv->expo_pos = 0;
+		lv->expo_round = i - 2;
+	}
+	i++;
 
-	vecx PW_C00; /* Static word 0 */
-	vecx PW_C01; /* Sttati word 1 */
-	vecx PW_C03; /* Static (stage 2) word 3 (exponent LSBs) */
-	vecx PW_C15; /* W word for cycle 15 (hash size) */
+	for (; i < VEC_SHA1_LBLOCK_SIZE - 1; ++i)
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_zero());
 
-	vecx PA_C03; /* 'add' pre-compute for cycle 3 (post stage 1) */
+	/* Time to write the total bit length in big endian */
+	vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(htobe32(8 * total_len)));
+}
 
-	/* Final resulting addresses (hashes) */
-	union vec_rawaddr  R[VECX_LANE_COUNT];
-};
 
+/* Prepare exponent values used by exhaust loop */
+static void leek_exhaust_prepare(struct leek_vecx *lv)
+{
+	unsigned int expo_shift = 8 * lv->expo_pos;
+	void *ptr[2];
+	vecx adder;
+
+	/* Values added to every lane */
+	adder = vecx_shl(vecx_even_numbers(), expo_shift);
+
+	/* Pointer to exponent words */
+	ptr[0] = &lv->block[VECX_WORD_SIZE * (lv->expo_round + 0)];
+	ptr[1] = &lv->block[VECX_WORD_SIZE * (lv->expo_round + 1)];
+
+	/* Store these values for use by the main exhaust loop */
+	lv->vexpo[0] = vecx_bswap(vecx_load(ptr[0]));
+	lv->vexpo[1] = vecx_add(vecx_bswap(vecx_load(ptr[1])), adder);
+}
+
+
+static void leek_vecx_block_update(struct leek_vecx *lv, const void *ptr)
+{
+	const uint32_t *ptr32 = ptr;
+
+	for (int i = 0; i < VEC_SHA1_LBLOCK_SIZE; ++i)
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(ptr32[i]));
+}
+
+
+/* Stage0: pre-compute first full SHA1 blocks */
+static int leek_vecx_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
+{
+	struct leek_vecx *lv = lc->private_data;
+	size_t rem = len;
+	int ret = -1;
+
+	leek_vecx_reset(lv);
+
+	while (rem >= VEC_SHA1_BLOCK_SIZE) {
+		leek_vecx_block_update(lv, ptr);
+		leek_vecx_update(lv);
+		rem -= VEC_SHA1_BLOCK_SIZE;
+		ptr += VEC_SHA1_BLOCK_SIZE;
+	}
+
+	/* These checks are *HIGHLY* improbable in theory, but let's be safe here */
+	if (rem < LEEK_RSA_E_SIZE) {
+		/* This makes it impossible to iterate over exponent in the last block */
+		fprintf(stderr, "SHA1 init failed: too few data in last hash block.\n");
+		goto out;
+	}
+
+	if (rem > (VEC_SHA1_BLOCK_SIZE - sizeof(uint64_t) - 1)) {
+		/* This makes it impossible to finalize hash in the same block as exponent */
+		fprintf(stderr, "SHA1 init failed: too much data in last hash block.\n");
+		goto out;
+	}
+
+	leek_vecx_block_finalize(lv, ptr, len);
+	leek_exhaust_prepare(lv);
+
+	ret = 0;
+out:
+	return ret;
+}
+
+static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
+                                unsigned int mode)
+{
+	struct leek_vecx *lv = lc->private_data;
+	uint32_t increment = 1 << ((8 * lv->expo_pos) + VECX_INCR_ORDER);
+	unsigned int iter_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> 4;
+	unsigned int outer_count;
+	unsigned int outer_init;
+	unsigned int inner_count;
+	unsigned int inner_init;
+	vecx vexpo[2];  /* current exponents words (high / low) */
+	vecx vincr[2];  /* increments (high / low)*/
+
+	/* Handle different alignments (else clause will never happen anyway...) */
+	if (lv->expo_pos) {
+		outer_count = (LEEK_RSA_E_LIMIT + 2U) >> (8 * (4 - lv->expo_pos));
+		outer_init = (LEEK_RSA_E_START) >> (8 * (4 - lv->expo_pos));
+		inner_count = (1ULL << (8 * (4 - lv->expo_pos) - VECX_INCR_ORDER));
+		inner_init = iter_count & (byte_mask(4 - lv->expo_pos) >> VECX_INCR_ORDER);
+	}
+	else {
+		outer_count = 1;
+		outer_init = 0;
+		inner_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> VECX_INCR_ORDER;
+		inner_init = LEEK_RSA_E_START >> VECX_INCR_ORDER;
+	}
+
+	vincr[0] = vecx_set(1);
+	vincr[1] = vecx_set(increment);
+
+	vexpo[0] = lv->vexpo[0];
+	vexpo[1] = lv->vexpo[1];
+
+	/* Stage1 pre-computation */
+	leek_exhaust_precalc_1(lv);
+
+	/* While using RSA 1024, inner is 16 and outer is 8388608 (on AVX2)
+	 * This makes sense to perform the outer loop inside the inner loop
+	 * to perform less stage 2 pre-comptutes */
+	/* Total real e checked is 3FC00000 (~1.70GH):
+	 * 8 * ((outer_count - outer_init) * inner_count - inner_init) */
+
+	for (unsigned int i = inner_init; i < inner_count; ++i) {
+		leek_exhaust_precalc_2(lv, vexpo[1]);
+		vexpo[0] = lv->vexpo[0];
+
+		for (unsigned int o = outer_init; o < outer_count; ++o) {
+			leek_vecx_finalize(lv, vexpo[0]);
+
+			/* Check results for all lanes here */
+			for (int r = 0; r < VECX_LANE_COUNT; ++r) {
+				union leek_rawaddr *result;
+				int length;
+				int ret;
+
+				result = &lv->R[r].addr;
+
+				/* These branches are simplified in different hard copies of this function */
+				switch (mode) {
+					case LEEK_MODE_MULTI:
+						length = leek_lookup_multi(result);
+						break;
+
+					case LEEK_MODE_SINGLE:
+						length = leek_lookup_single(result);
+						break;
+
+					/* We don't need a 'default' case here since our parameter is a
+					 * const value and this function is static. */
+				}
+
+				if (unlikely(length)) {
+					/* What's my e again? */
+					uint32_t e = 2 * (VECX_LANE_COUNT * (o * inner_count + i) + r) + 1;
+					ret = leek_address_check(lc, e, result);
+					if (ret < 0)
+						__sync_add_and_fetch(&leek.error_hash_count, 1);
+					else
+						leek_result_display(lc->rsa, e, length, result);
+				}
+			}
+
+			vexpo[0] = vecx_add(vexpo[0], vincr[0]);
+			wk->hash_count += VECX_LANE_COUNT;
+		}
+
+		vexpo[1] = vecx_add(vexpo[1], vincr[1]);
+	}
+
+	return 0;
+}
+
+static int __flatten leek_vecx_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+{
+	int ret;
+
+	/* This dumb thing (and the __flatten attribute) enables code cloning of __leek_exhaust */
+	switch (leek.config.mode) {
+		case LEEK_MODE_MULTI:
+			ret = __leek_exhaust(wk, lc, LEEK_MODE_MULTI);
+			break;
+
+		case LEEK_MODE_SINGLE:
+			ret = __leek_exhaust(wk, lc, LEEK_MODE_SINGLE);
+			break;
+
+		default:
+			ret = 0;
+			break;
+	}
+
+	return ret;
+}
+
+#define LEEK_VECX_DEFINE(_name)                         \
+	const struct leek_implementation _name = {            \
+		.name      = VECX_IMPL_NAME,                        \
+		.weight    = VECX_LANE_COUNT,                       \
+		.available = leek_vecx_available,                   \
+		.init      = leek_vecx_init,                        \
+		.precalc   = leek_vecx_precalc,                     \
+		.exhaust   = leek_vecx_exhaust,                     \
+	}
 #endif /* !__LEEK_VECX_H */

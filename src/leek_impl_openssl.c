@@ -3,6 +3,7 @@
 
 #include "leek_cpu.h"
 #include "leek_impl_openssl.h"
+#include "leek_lookup.h"
 
 
 static int leek_openssl_available(void)
@@ -10,7 +11,6 @@ static int leek_openssl_available(void)
 	/* This implementation is always available (hurray!) */
 	return 1;
 }
-
 
 static void *leek_openssl_init(void)
 {
@@ -24,7 +24,6 @@ static void *leek_openssl_init(void)
 out:
 	return lco;
 }
-
 
 static int leek_openssl_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 {
@@ -111,7 +110,6 @@ static int __flatten leek_openssl_exhaust(struct leek_worker *wk, struct leek_cr
 
 	return ret;
 }
-
 
 const struct leek_implementation leek_impl_openssl = {
 	.name      = "OpenSSL",
