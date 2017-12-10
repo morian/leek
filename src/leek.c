@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/sysinfo.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -45,7 +46,7 @@ static void leek_usage(FILE *fp, const char *prog_name)
 	fprintf(fp, " -o, --output       output directory (default prints on stdout).\n");
 	fprintf(fp, " -l, --length=N:M   length filter for dictionary attack [%u-%u].\n",
 	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
-	fprintf(fp, " -t, --threads=#    worker threads count (default is 1).\n");
+	fprintf(fp, " -t, --threads=#    worker threads count (default is all cores).\n");
 	fprintf(fp, " -I, --impl=#       select implementation (see bellow).\n");
 	fprintf(fp, " -s, --stop(=1)     stop processing after # success (default is infinite).\n");
 	fprintf(fp, " -b, --benchmark    show average speed instead of current speed.\n");
@@ -103,7 +104,7 @@ static int leek_options_parse(int argc, char *argv[])
 	leek.config.len_max = LEEK_LENGTH_MAX;
 
 	/* These are default values */
-	leek.config.threads = 1;
+	leek.config.threads = get_nprocs();
 	leek.config.keysize = LEEK_KEYSIZE_MIN;
 	leek.config.mode = LEEK_MODE_MULTI;
 
