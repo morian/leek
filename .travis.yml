@@ -45,4 +45,4 @@ before_script:
 script:
   - make
   - ./src/leek --help
-  - ./src/leek --benchmark --stop --verbose --threads 2 --prefix travis
+  - ./src/leek --benchmark --stop --verbose --prefix travis
