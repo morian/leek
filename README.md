@@ -127,7 +127,7 @@ A few performance measurements (in MH/s) on different target CPUs.
 
 | CPU      | Base Freq.  | Thread | OpenSSL |   SSSE3 |    AVX2 |
 |----------|-------------|--------|---------|---------|---------|
-| i7-7700K | 4.20GHz     | 8      |     275 |     275 |     275 |
+| i7-7700K | 4.20GHz     | 8      |      47 |     115 |     282 |
 | i7-6700  | 3.40GHz     | 8      |      43 |     105 |     254 |
 | i5-4690S | 3.20GHz     | 4      |      30 |      90 |     190 |
 | i7-4950U | 1.70GHz     | 4      |      13 |      36 |      79 |
@@ -158,6 +158,11 @@ Coarse average time (50% chances) to generate a .onion with a given prefix lengt
 FAQ
 ---
 
+### I try to force-use AVX2 but it keeps crashing with "illegal instruction".
+
+Leek uses the best available implementation by default.
+If you want to forcedly a better implementation please make sure that your system does support it (see bellow).
+
 ### How do I check whether AVX2 is available on my CPU?
 
 AVX2 instruction set is available since 2014 and Haswell processors (i3/i5/i7 4000 serie).
@@ -174,12 +179,6 @@ When in doubt, feel free to run the following command:
 ```sh
 lscpu | grep ssse3
 ```
-
-### Can I package Leek?
-
-In the actual state this might be hard since vector choice is performed at compile time.
-This would require a non-trivial redesign to make this choice at run time with no performance hit.
-
 
 ### Will you port it to any Windows/MacOSX?
 
