@@ -15,7 +15,7 @@
 # endif
 
 /* Arbitrary maximum thread count */
-# define LEEK_CPU_VERSION            "v1.2"
+# define LEEK_CPU_VERSION            "v1.3"
 # define LEEK_LENGTH_MIN                  4
 # define LEEK_LENGTH_MAX   LEEK_ADDRESS_LEN
 # define LEEK_THREADS_MAX               512
