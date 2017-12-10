@@ -11,6 +11,23 @@
 #include "leek_cpu.h"
 
 
+/* Bunch of beautiful wrappers here */
+static void *leek_impl_init(void)
+{
+	return leek.current_impl->init();
+}
+
+static int leek_impl_precalc(struct leek_crypto *lc, const uint8_t *der, size_t len)
+{
+	return leek.current_impl->precalc(lc, der, len);
+}
+
+static int leek_impl_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+{
+	return leek.current_impl->exhaust(wk, lc);
+}
+
+
 static void leek_crypto_error(const char *prefix)
 {
 	const char *message;
@@ -118,7 +135,7 @@ static int leek_crypto_rsa_rekey(struct leek_crypto *lc)
 	if (lc->rsa)
 		RSA_free(lc->rsa);
 
-	ret = leek_sha1_precalc(lc, der, derlen);
+	ret = leek_impl_precalc(lc, der, derlen);
 	if (ret < 0)
 		goto error;
 	lc->rsa = rsa;
@@ -140,41 +157,39 @@ error:
 
 static void leek_crypto_exit(struct leek_crypto *lc)
 {
-	if (lc) {
-		if (lc->rsa)
-			RSA_free(lc->rsa);
-		if (lc->big_e)
-			BN_free(lc->big_e);
-		free(lc);
-	}
+	if (lc->rsa)
+		RSA_free(lc->rsa);
+	if (lc->big_e)
+		BN_free(lc->big_e);
+	if (lc->private_data)
+		free(lc->private_data);
 }
 
 
-static struct leek_crypto *leek_crypto_init(void)
+static int leek_crypto_init(struct leek_crypto *lc)
 {
-	struct leek_crypto *lc;
+	int ret = -1;
 	BIGNUM *big_e;
-
-	lc = aligned_alloc(LEEK_CACHELINE_SZ, sizeof(*lc));
-	if (!lc)
-		goto out;
-	memset(lc, 0, sizeof *lc);
+	void *prv_data;
 
 	big_e = BN_new();
 	if (!big_e) {
 		leek_crypto_error("BN_new failed");
-		goto lc_free;
+		goto out;
 	}
 
+	prv_data = leek_impl_init();
+	if (!prv_data)
+		goto out;
+
+	memset(lc, 0, sizeof *lc);
 	BN_set_word(big_e, LEEK_RSA_E_START);
 	lc->big_e = big_e;
+	lc->private_data = prv_data;
+	ret = 0;
 
 out:
-	return lc;
-
-lc_free:
-	free(lc);
-	return NULL;
+	return ret;
 }
 
 
@@ -398,7 +413,7 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 	prv_output = alloca(buffer->length);
 	memcpy(prv_output, buffer->data, buffer->length);
 
-	/* Are you excited to find out wich domain we got? */
+	/* Are you excited to find out which domain we got? */
 	leek_base32_enc(onion_address, addr->buffer);
 
 	/* Avoid displaying one extra result */
@@ -481,11 +496,11 @@ out:
 void *leek_worker(void *arg)
 {
 	struct leek_worker *wk = arg;
-	struct leek_crypto *lc;
-	long ret = -1;
+	struct leek_crypto *lc = alloca(sizeof(*lc));
+	long ret;
 
-	lc = leek_crypto_init();
-	if (!lc)
+	ret = leek_crypto_init(lc);
+	if (ret < 0)
 		goto out;
 
 	while (1) {
@@ -493,7 +508,7 @@ void *leek_worker(void *arg)
 		if (ret < 0)
 			goto wk_exit;
 
-		ret = leek_exhaust(wk, lc);
+		ret = leek_impl_exhaust(wk, lc);
 		if (ret < 0)
 			goto wk_exit;
 	}

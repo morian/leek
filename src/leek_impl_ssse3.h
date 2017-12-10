@@ -1,5 +1,6 @@
-#ifndef __LEEK_SHA1_SSE_H
-# define __LEEK_SHA1_SSE_H
+#ifndef __LEEK_IMPL_SSSE3_H
+# define __LEEK_IMPL_SSSE3_H
+# pragma GCC target "ssse3"
 # include <stdint.h>
 # include <immintrin.h>
 
@@ -110,6 +111,7 @@ static inline vecx vecx_even_numbers(void)
 
 #define VECX_LANE_ORDER                         2
 #define VECX_IMPL_NAME                    "SSSE3"
+#define VECX_IMPL_ISA                     "ssse3"
+#define VECX_IMPL_STRUCT          leek_impl_ssse3
 
-
-#endif /* !__LEEK_SHA1_SSE_H */
+#endif /* !__LEEK_IMPL_SSSE3_H */

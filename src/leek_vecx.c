@@ -1,33 +1,50 @@
 #include <stdint.h>
+#include <string.h>
 
-int leek_sha1_init(void)
+#include "leek_vecx.h"
+
+/* This avoids unwanted instructions in this function. */
+#pragma GCC push_options
+static int leek_vecx_available(void)
 {
-	if (leek.config.flags & LEEK_FLAG_VERBOSE)
-		printf("[+] Leek is using custom " VECX_IMPL_NAME " implementation.\n");
-	return 0;
+	return __builtin_cpu_supports(VECX_IMPL_ISA);
 }
 
-static void leek_sha1_reset(struct leek_crypto *lc)
+#pragma GCC pop_options
+static void *leek_vecx_init(void)
 {
-	lc->sha1.H[0] = vecx_set(VEC_SHA1_H0);
-	lc->sha1.H[1] = vecx_set(VEC_SHA1_H1);
-	lc->sha1.H[2] = vecx_set(VEC_SHA1_H2);
-	lc->sha1.H[3] = vecx_set(VEC_SHA1_H3);
-	lc->sha1.H[4] = vecx_set(VEC_SHA1_H4);
+	struct leek_vecx *lv;
+
+	lv = aligned_alloc(LEEK_CACHELINE_SZ, sizeof(*lv));
+	if (!lv)
+		goto out;
+	memset(lv, 0, sizeof(*lv));
+
+out:
+	return lv;
+}
+
+static void leek_vecx_reset(struct leek_vecx *lv)
+{
+	lv->H[0] = vecx_set(VEC_SHA1_H0);
+	lv->H[1] = vecx_set(VEC_SHA1_H1);
+	lv->H[2] = vecx_set(VEC_SHA1_H2);
+	lv->H[3] = vecx_set(VEC_SHA1_H3);
+	lv->H[4] = vecx_set(VEC_SHA1_H4);
 }
 
 /* Generic hash function (used for the first blocks) */
-static void leek_sha1_update(struct leek_crypto *lc)
+static void leek_vecx_update(struct leek_vecx *lv)
 {
-	const vecx *in = (const vecx *) lc->sha1.block;
+	const vecx *in = (const vecx *) lv->block;
 	vecx W[16];
 	vecx a, b, c, d, e;
 
-	a = lc->sha1.H[0];
-	b = lc->sha1.H[1];
-	c = lc->sha1.H[2];
-	d = lc->sha1.H[3];
-	e = lc->sha1.H[4];
+	a = lv->H[0];
+	b = lv->H[1];
+	c = lv->H[2];
+	d = lv->H[3];
+	e = lv->H[4];
 
 	vecx_ROUND(vecx_F1, vecx_SRC,  0, a, b, c, d, e, VEC_SHA1_K1);
 	vecx_ROUND(vecx_F1, vecx_SRC,  1, e, a, b, c, d, VEC_SHA1_K1);
@@ -113,25 +130,25 @@ static void leek_sha1_update(struct leek_crypto *lc)
 	vecx_ROUND(vecx_F4, vecx_MIX, 78, c, d, e, a, b, VEC_SHA1_K4);
 	vecx_ROUND(vecx_F4, vecx_MIX, 79, b, c, d, e, a, VEC_SHA1_K4);
 
-	lc->sha1.H[0] = vecx_add(a, lc->sha1.H[0]);
-	lc->sha1.H[1] = vecx_add(b, lc->sha1.H[1]);
-	lc->sha1.H[2] = vecx_add(c, lc->sha1.H[2]);
-	lc->sha1.H[3] = vecx_add(d, lc->sha1.H[3]);
-	lc->sha1.H[4] = vecx_add(e, lc->sha1.H[4]);
+	lv->H[0] = vecx_add(a, lv->H[0]);
+	lv->H[1] = vecx_add(b, lv->H[1]);
+	lv->H[2] = vecx_add(c, lv->H[2]);
+	lv->H[3] = vecx_add(d, lv->H[3]);
+	lv->H[4] = vecx_add(e, lv->H[4]);
 }
 
 /* Stage1: pre-compute all-time fixed values */
-static void leek_exhaust_precalc_1(struct leek_crypto *lc)
+static void leek_exhaust_precalc_1(struct leek_vecx *lv)
 {
-	const vecx *in = (const vecx *) lc->sha1.block;
+	const vecx *in = (const vecx *) lv->block;
 	vecx a, b, c, d, e;
 	vecx W[2];
 
-	a = lc->sha1.H[0];
-	b = lc->sha1.H[1];
-	c = lc->sha1.H[2];
-	d = lc->sha1.H[3];
-	e = lc->sha1.H[4];
+	a = lv->H[0];
+	b = lv->H[1];
+	c = lv->H[2];
+	d = lv->H[3];
+	e = lv->H[4];
 
 	/* Pre-compute the first few rounds here (static data) */
 	vecx_ROUND_O(vecx_F1, vecx_SRC,  0, a, b, c, d, e, VEC_SHA1_K1);
@@ -141,52 +158,52 @@ static void leek_exhaust_precalc_1(struct leek_crypto *lc)
 	vecx_ROUND_E(vecx_F1,            2, d, e, a, b, c, VEC_SHA1_K1);
 
 	/* This is very partial pre-calculus or round 3 */
-	lc->sha1.PA_C03 = vecx_add3(b, vecx_F1(d, e, a), vecx_set(VEC_SHA1_K1));
+	lv->PA_C03 = vecx_add3(b, vecx_F1(d, e, a), vecx_set(VEC_SHA1_K1));
 	d = vecx_ror(d, 2);
 
 	/* Store our current state(s) */
-	lc->sha1.PW_C00 = W[0];         /* 1st static word */
-	lc->sha1.PW_C01 = W[1];         /* 2nd static word */
+	lv->PW_C00 = W[0];         /* 1st static word */
+	lv->PW_C01 = W[1];         /* 2nd static word */
 
-	lc->sha1.PW_C15 = vecx_SRC(15);
+	lv->PW_C15 = vecx_SRC(15);
 
-	lc->sha1.PH[0] = a;
-	lc->sha1.PH[1] = b;
-	lc->sha1.PH[2] = c;
-	lc->sha1.PH[3] = d;
-	lc->sha1.PH[4] = e;
+	lv->PH[0] = a;
+	lv->PH[1] = b;
+	lv->PH[2] = c;
+	lv->PH[3] = d;
+	lv->PH[4] = e;
 }
 
 
-static void leek_exhaust_precalc_2(struct leek_crypto *lc, vecx vexpo_1)
+static void leek_exhaust_precalc_2(struct leek_vecx *lv, vecx vexpo_1)
 {
-	lc->sha1.PW_C03 = vexpo_1;
+	lv->PW_C03 = vexpo_1;
 
 	/* Enhance pre-compute for cycle 3 (here we have temporary value for 'b') */
-	lc->sha1.PH[1] = vecx_add(lc->sha1.PA_C03, vexpo_1);
+	lv->PH[1] = vecx_add(lv->PA_C03, vexpo_1);
 }
 
 
 /* Customized hash function (final block) */
-static void leek_sha1_finalize(struct leek_crypto *lc, vecx vexpo_0)
+static void leek_vecx_finalize(struct leek_vecx *lv, vecx vexpo_0)
 {
-	void *resptr = (void *) &lc->sha1.R;
+	void *resptr = (void *) &lv->R;
 	vecx a, b, c, d, e;
 	/* 80 rounds minus the 3 finals */
 	vecx W[77];
 
-	a = lc->sha1.PH[0];
-	b = lc->sha1.PH[1];
-	c = lc->sha1.PH[2];
-	d = lc->sha1.PH[3];
-	e = lc->sha1.PH[4];
+	a = lv->PH[0];
+	b = lv->PH[1];
+	c = lv->PH[2];
+	d = lv->PH[3];
+	e = lv->PH[4];
 
 	/* Load pre-computed data */
-	W[0]  = lc->sha1.PW_C00;
-	W[1]  = lc->sha1.PW_C01;
+	W[0]  = lv->PW_C00;
+	W[1]  = lv->PW_C01;
 	W[2]  = vexpo_0;
-	W[3]  = lc->sha1.PW_C03;
-	W[15] = lc->sha1.PW_C15;
+	W[3]  = lv->PW_C03;
+	W[15] = lv->PW_C15;
 
 	/* This finishes round 2 gracefully */
 	c = vecx_add(c, vexpo_0);
@@ -280,9 +297,9 @@ static void leek_sha1_finalize(struct leek_crypto *lc, vecx vexpo_0)
 	vecx_ROUND_F(vecx_F4, vecx_MXF, 79, b, c, d, e, a, VEC_SHA1_K4);
 
 	/* We keep the first 3 words (12B) as we only need 10B for this attack */
-	a = vecx_add(a, lc->sha1.H[0]);
-	b = vecx_add(b, lc->sha1.H[1]);
-	c = vecx_add(c, lc->sha1.H[2]);
+	a = vecx_add(a, lv->H[0]);
+	b = vecx_add(b, lv->H[1]);
+	c = vecx_add(c, lv->H[2]);
 	/* 'd' contains garbage but we will not read it anyway */
 
 	vecx_transpose(a, b, c, d);
@@ -295,16 +312,7 @@ static void leek_sha1_finalize(struct leek_crypto *lc, vecx vexpo_0)
 }
 
 
-static void leek_sha1_block_update(struct leek_crypto *lc, const void *ptr)
-{
-	const uint32_t *ptr32 = ptr;
-
-	for (int i = 0; i < VEC_SHA1_LBLOCK_SIZE; ++i)
-		vecx_store(lc->sha1.block + VECX_WORD_SIZE * i, vecx_set(ptr32[i]));
-}
-
-
-static void leek_sha1_block_finalize(struct leek_crypto *lc, const void *ptr,
+static void leek_vecx_block_finalize(struct leek_vecx *lv, const void *ptr,
                                      size_t total_len)
 {
 	const uint32_t *ptr32 = ptr;
@@ -314,7 +322,7 @@ static void leek_sha1_block_finalize(struct leek_crypto *lc, const void *ptr,
 	size_t i;
 
 	for (i = 0; i < len32; ++i)
-		vecx_store(lc->sha1.block + VECX_WORD_SIZE * i, vecx_set(ptr32[i]));
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(ptr32[i]));
 
 	/* Write the last word and try to finalize stuff */
 	remaining = len - 4 * i;
@@ -323,30 +331,30 @@ static void leek_sha1_block_finalize(struct leek_crypto *lc, const void *ptr,
 		uint32_t sha1_end = 0x80 << (8 * remaining);
 		uint32_t value = (ptr32[i] & mask) | sha1_end;
 
-		vecx_store(lc->sha1.block + VECX_WORD_SIZE * i, vecx_set(value));
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(value));
 
-		lc->sha1.expo_pos = 4 - remaining;
-		lc->sha1.expo_round = i - 1;
+		lv->expo_pos = 4 - remaining;
+		lv->expo_round = i - 1;
 	}
 	else {
-		vecx_store(lc->sha1.block + VECX_WORD_SIZE * i, vecx_set(0x80));
-		lc->sha1.expo_pos = 0;
-		lc->sha1.expo_round = i - 2;
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(0x80));
+		lv->expo_pos = 0;
+		lv->expo_round = i - 2;
 	}
 	i++;
 
 	for (; i < VEC_SHA1_LBLOCK_SIZE - 1; ++i)
-		vecx_store(lc->sha1.block + VECX_WORD_SIZE * i, vecx_zero());
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_zero());
 
 	/* Time to write the total bit length in big endian */
-	vecx_store(lc->sha1.block + VECX_WORD_SIZE * i, vecx_set(htobe32(8 * total_len)));
+	vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(htobe32(8 * total_len)));
 }
 
 
 /* Prepare exponent values used by exhaust loop */
-static void leek_exhaust_prepare(struct leek_crypto *lc)
+static void leek_exhaust_prepare(struct leek_vecx *lv)
 {
-	unsigned int expo_shift = 8 * lc->sha1.expo_pos;
+	unsigned int expo_shift = 8 * lv->expo_pos;
 	void *ptr[2];
 	vecx adder;
 
@@ -354,26 +362,36 @@ static void leek_exhaust_prepare(struct leek_crypto *lc)
 	adder = vecx_shl(vecx_even_numbers(), expo_shift);
 
 	/* Pointer to exponent words */
-	ptr[0] = &lc->sha1.block[VECX_WORD_SIZE * (lc->sha1.expo_round + 0)];
-	ptr[1] = &lc->sha1.block[VECX_WORD_SIZE * (lc->sha1.expo_round + 1)];
+	ptr[0] = &lv->block[VECX_WORD_SIZE * (lv->expo_round + 0)];
+	ptr[1] = &lv->block[VECX_WORD_SIZE * (lv->expo_round + 1)];
 
 	/* Store these values for use by the main exhaust loop */
-	lc->sha1.vexpo[0] = vecx_bswap(vecx_load(ptr[0]));
-	lc->sha1.vexpo[1] = vecx_add(vecx_bswap(vecx_load(ptr[1])), adder);
+	lv->vexpo[0] = vecx_bswap(vecx_load(ptr[0]));
+	lv->vexpo[1] = vecx_add(vecx_bswap(vecx_load(ptr[1])), adder);
+}
+
+
+static void leek_vecx_block_update(struct leek_vecx *lv, const void *ptr)
+{
+	const uint32_t *ptr32 = ptr;
+
+	for (int i = 0; i < VEC_SHA1_LBLOCK_SIZE; ++i)
+		vecx_store(lv->block + VECX_WORD_SIZE * i, vecx_set(ptr32[i]));
 }
 
 
 /* Stage0: pre-compute first full SHA1 blocks */
-int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
+static int leek_vecx_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 {
+	struct leek_vecx *lv = lc->private_data;
 	size_t rem = len;
 	int ret = -1;
 
-	leek_sha1_reset(lc);
+	leek_vecx_reset(lv);
 
 	while (rem >= VEC_SHA1_BLOCK_SIZE) {
-		leek_sha1_block_update(lc, ptr);
-		leek_sha1_update(lc);
+		leek_vecx_block_update(lv, ptr);
+		leek_vecx_update(lv);
 		rem -= VEC_SHA1_BLOCK_SIZE;
 		ptr += VEC_SHA1_BLOCK_SIZE;
 	}
@@ -391,8 +409,8 @@ int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 		goto out;
 	}
 
-	leek_sha1_block_finalize(lc, ptr, len);
-	leek_exhaust_prepare(lc);
+	leek_vecx_block_finalize(lv, ptr, len);
+	leek_exhaust_prepare(lv);
 
 	ret = 0;
 out:
@@ -402,7 +420,8 @@ out:
 static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
                                 unsigned int mode)
 {
-	uint32_t increment = 1 << ((8 * lc->sha1.expo_pos) + VECX_INCR_ORDER);
+	struct leek_vecx *lv = lc->private_data;
+	uint32_t increment = 1 << ((8 * lv->expo_pos) + VECX_INCR_ORDER);
 	unsigned int iter_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> 4;
 	unsigned int outer_count;
 	unsigned int outer_init;
@@ -412,11 +431,11 @@ static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
 	vecx vincr[2];  /* increments (high / low)*/
 
 	/* Handle different alignments (else clause will never happen anyway...) */
-	if (lc->sha1.expo_pos) {
-		outer_count = (LEEK_RSA_E_LIMIT + 2U) >> (8 * (4 - lc->sha1.expo_pos));
-		outer_init = (LEEK_RSA_E_START) >> (8 * (4 - lc->sha1.expo_pos));
-		inner_count = (1ULL << (8 * (4 - lc->sha1.expo_pos) - VECX_INCR_ORDER));
-		inner_init = iter_count & (byte_mask(4 - lc->sha1.expo_pos) >> VECX_INCR_ORDER);
+	if (lv->expo_pos) {
+		outer_count = (LEEK_RSA_E_LIMIT + 2U) >> (8 * (4 - lv->expo_pos));
+		outer_init = (LEEK_RSA_E_START) >> (8 * (4 - lv->expo_pos));
+		inner_count = (1ULL << (8 * (4 - lv->expo_pos) - VECX_INCR_ORDER));
+		inner_init = iter_count & (byte_mask(4 - lv->expo_pos) >> VECX_INCR_ORDER);
 	}
 	else {
 		outer_count = 1;
@@ -428,11 +447,11 @@ static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
 	vincr[0] = vecx_set(1);
 	vincr[1] = vecx_set(increment);
 
-	vexpo[0] = lc->sha1.vexpo[0];
-	vexpo[1] = lc->sha1.vexpo[1];
+	vexpo[0] = lv->vexpo[0];
+	vexpo[1] = lv->vexpo[1];
 
 	/* Stage1 pre-computation */
-	leek_exhaust_precalc_1(lc);
+	leek_exhaust_precalc_1(lv);
 
 	/* While using RSA 1024, inner is 16 and outer is 8388608 (on AVX2)
 	 * This makes sense to perform the outer loop inside the inner loop
@@ -441,11 +460,11 @@ static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
 	 * 8 * ((outer_count - outer_init) * inner_count - inner_init) */
 
 	for (unsigned int i = inner_init; i < inner_count; ++i) {
-		leek_exhaust_precalc_2(lc, vexpo[1]);
-		vexpo[0] = lc->sha1.vexpo[0];
+		leek_exhaust_precalc_2(lv, vexpo[1]);
+		vexpo[0] = lv->vexpo[0];
 
 		for (unsigned int o = outer_init; o < outer_count; ++o) {
-			leek_sha1_finalize(lc, vexpo[0]);
+			leek_vecx_finalize(lv, vexpo[0]);
 
 			/* Check results for all lanes here */
 			for (int r = 0; r < VECX_LANE_COUNT; ++r) {
@@ -453,7 +472,7 @@ static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
 				int length;
 				int ret;
 
-				result = &lc->sha1.R[r].addr;
+				result = &lv->R[r].addr;
 
 				/* These branches are simplified in different hard copies of this function */
 				switch (mode) {
@@ -490,7 +509,7 @@ static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
 	return 0;
 }
 
-int __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+static int __flatten leek_vecx_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 {
 	int ret;
 
@@ -511,3 +530,13 @@ int __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 
 	return ret;
 }
+
+
+const struct leek_implementation VECX_IMPL_STRUCT = {
+	.name      = VECX_IMPL_NAME,
+	.weight    = VECX_LANE_COUNT,
+	.available = leek_vecx_available,
+	.init      = leek_vecx_init,
+	.precalc   = leek_vecx_precalc,
+	.exhaust   = leek_vecx_exhaust,
+};

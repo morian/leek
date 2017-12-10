@@ -1,19 +1,37 @@
 #include <stdint.h>
+#include <string.h>
 
-#define LEEK_SHA1_COPY_SIZE  (10 * sizeof(SHA_LONG))
+#include "leek_cpu.h"
+#include "leek_impl_openssl.h"
 
 
-int leek_sha1_init(void)
+static int leek_openssl_available(void)
 {
-	if (leek.config.flags & LEEK_FLAG_VERBOSE)
-		printf("[+] Leek is using OpenSSL implementation.\n");
-	return 0;
+	/* This implementation is always available (hurray!) */
+	return 1;
 }
 
-int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
+
+static void *leek_openssl_init(void)
 {
-	SHA1_Init(&lc->sha1.hash);
-	SHA1_Update(&lc->sha1.hash, ptr, len - LEEK_RSA_E_SIZE);
+	struct leek_crypto_openssl *lco;
+
+	lco = aligned_alloc(LEEK_CACHELINE_SZ, sizeof(*lco));
+	if (!lco)
+		goto out;
+	memset(lco, 0, sizeof(*lco));
+
+out:
+	return lco;
+}
+
+
+static int leek_openssl_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
+{
+	struct leek_crypto_openssl *lco = lc->private_data;
+
+	SHA1_Init(&lco->hash);
+	SHA1_Update(&lco->hash, ptr, len - LEEK_RSA_E_SIZE);
 
 	return 0;
 }
@@ -21,6 +39,7 @@ int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
 static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
                                 unsigned int mode)
 {
+	struct leek_crypto_openssl *lco = lc->private_data;
 	uint8_t sha1_buffer[SHA_DIGEST_LENGTH];
 	const union leek_rawaddr *sha1_addr;
 	uint32_t e = LEEK_RSA_E_START - 2;
@@ -38,8 +57,8 @@ static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
 
 		/* Copy internal state and relevant part of internal buffer
 		 * Also copy "num" which is the state of internal buffer */
-		memcpy(&hash, &lc->sha1.hash, LEEK_SHA1_COPY_SIZE);
-		hash.num = lc->sha1.hash.num;
+		memcpy(&hash, &lco->hash, LEEK_SHA1_COPY_SIZE);
+		hash.num = lco->hash.num;
 
 		SHA1_Update(&hash, &e_be, LEEK_RSA_E_SIZE);
 		SHA1_Final(sha1_buffer, &hash);
@@ -71,7 +90,7 @@ static int __hot __leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc,
 	return 0;
 }
 
-int __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+static int __flatten leek_openssl_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 {
 	int ret;
 
@@ -92,3 +111,13 @@ int __flatten leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 
 	return ret;
 }
+
+
+const struct leek_implementation leek_impl_openssl = {
+	.name      = "OpenSSL",
+	.weight    = 1,
+	.available = leek_openssl_available,
+	.init      = leek_openssl_init,
+	.precalc   = leek_openssl_precalc,
+	.exhaust   = leek_openssl_exhaust,
+};

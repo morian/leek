@@ -1,11 +1,11 @@
-CFLAGS    := -std=gnu11 -pipe -O3 -march=native                         \
-             -Wall -Werror -Wextra -Wshadow -Wformat=2 -Wnested-externs \
-             -Wchar-subscripts
+CFLAGS    += -std=gnu11 -pipe -O3 -Wall -Werror -Wextra -Wshadow \
+             -Wformat=2 -Wnested-externs -Wchar-subscripts
 LDLIBS    := -lm -lssl -lcrypto
-LDFLAGS   := -pthread
+LDFLAGS   += -pthread
 
-LEEK_OBJS := leek.o leek_helper.o leek_worker.o leek_exhaust.o
-LEEK_SHA1 := $(wildcard leek_sha1_*.c)
+LEEK_IMPL := $(wildcard leek_impl_*.c)
+LEEK_OBJS := leek.o leek_helper.o leek_worker.o leek_impl.o
+LEEK_OBJS += $(LEEK_IMPL:.c=.o)
 LEEK_BIN  := leek
 
 OBJECTS   := $(LEEK_OBJS)
@@ -19,9 +19,5 @@ clean:
 	rm --force $(BINARIES) $(OBJECTS)
 
 $(LEEK_BIN): $(LEEK_OBJS)
-
-# This is dependency stuff here.
-# SHA1 implementations are hard-included by leek_exhaust.c
-leek_exhaust.o: $(LEEK_SHA1) leek_exhaust.c
 
 .PHONY: $(PHONY)

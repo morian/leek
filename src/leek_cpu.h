@@ -10,12 +10,6 @@
 
 # include "leek_helper.h"
 
-# if defined(__AVX2__) || defined(__SSSE3__)
-#  include "leek_sha1_specific.h"
-# else
-#  include "leek_sha1_generic.h"
-# endif
-
 # ifndef OPENSSL_VERSION_1_1
 #  define OPENSSL_VERSION_1_1   0x10100000L
 # endif
@@ -49,12 +43,12 @@
 
 /* Holds the crypto stuff we need in workers */
 struct leek_crypto {
-	/* SHA1 exhaust sub-structure */
-	struct leek_sha1 sha1;
+	/* Implementation specific data */
+	void   *private_data;
 
 	/* RSA stuff */
-	RSA              *rsa;
-	BIGNUM           *big_e;
+	RSA    *rsa;
+	BIGNUM *big_e;
 };
 
 /* Holds worker related information */
@@ -64,26 +58,37 @@ struct leek_worker {
 	pthread_t thread;
 };
 
+# include "leek_impl.h"
+
 struct leek_context {
 	/* Structure holding configuration from argument parsing */
 	struct {
-		const char *input_path;    /* Input prefix file */
-		const char *prefix;        /* Single prefix mode */
-		const char *output_path;   /* Output directory */
+		const char *input_path;     /* Input prefix file */
+		const char *prefix;         /* Single prefix mode */
+		const char *output_path;    /* Output directory */
+		const char *implementation; /* Choosen implementation */
 
-		unsigned int keysize;      /* RSA key size */
-		unsigned int threads;      /* Number of running threads */
-		unsigned int stop_count;   /* Stop after # successes (with LEEK_FLAG_STOP) */
-		unsigned int len_min;      /* Minimum prefix size */
-		unsigned int len_max;      /* Maximum prefix size */
-		unsigned int flags;        /* See enum bellow */
-		unsigned int mode;         /* See other enum bellow */
+		unsigned int keysize;       /* RSA key size */
+		unsigned int threads;       /* Number of running threads */
+		unsigned int stop_count;    /* Stop after # successes (with LEEK_FLAG_STOP) */
+		unsigned int len_min;       /* Minimum prefix size */
+		unsigned int len_max;       /* Maximum prefix size */
+		unsigned int flags;         /* See enum bellow */
+		unsigned int mode;          /* See other enum bellow */
 	} config;
 
 	/* Locks provided to OpenSSL */
 	pthread_mutex_t *openssl_locks;
 
+	/* Refers to all implementations known at build time */
+	const struct leek_implementation **implementations;
+
+	/* Chosen implementation */
+	const struct leek_implementation *current_impl;
+
+	/* All worker structures (one per-thread) */
 	struct leek_worker *worker;
+
 	union {
 		/* Tree of loaded prefixes from input file. */
 		struct leek_prefixes *prefixes;
@@ -117,26 +122,18 @@ enum {
 	LEEK_MODE_SINGLE    =  1,  /* Single prefix lookup */
 };
 
-
-/* Global program context structure. */
-extern struct leek_context leek;
-
-
-/* Main worker function */
+/* Worker function (thread point of entry) */
 void *leek_worker(void *arg);
-/* Exhaust function for current RSA configuration */
-int leek_exhaust(struct leek_worker *wk, struct leek_crypto *lc);
 
 /* Address post validation (called by exhaust) */
 int leek_address_check(struct leek_crypto *lc, unsigned int e,
                        const union leek_rawaddr *addr);
+
+/* Show a final result */
 void leek_result_display(RSA *rsa, uint32_t e, int length,
                          const union leek_rawaddr *addr);
 
-/* SHA1 unit initialization with DER data */
-int leek_sha1_precalc(struct leek_crypto *lc, const void *ptr, size_t len);
-
-/* Called once by the main thread, used to initialize static stuff */
-int leek_sha1_init(void);
+/* Global program context structure. */
+extern struct leek_context leek;
 
 #endif /* !__LEEK_CPU_H */

@@ -28,6 +28,7 @@ static struct option leek_long_options[] = {
 	{"key-size",  1, 0, 'k'},
 	{"benchmark", 0, 0, 'b'},
 	{"threads",   1, 0, 't'},
+	{"impl",      1, 0, 'I'},
 	{"stop",      2, 0, 's'},
 	{"verbose",   0, 0, 'v'},
 	{"help",      0, 0, 'h'},
@@ -45,11 +46,21 @@ static void leek_usage(FILE *fp, const char *prog_name)
 	fprintf(fp, " -l, --length=N:M   length filter for dictionary attack [%u-%u].\n",
 	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
 	fprintf(fp, " -t, --threads=#    worker threads count (default is 1).\n");
+	fprintf(fp, " -I, --impl=#       select implementation (see bellow).\n");
 	fprintf(fp, " -s, --stop(=1)     stop processing after # success (default is infinite).\n");
 	fprintf(fp, " -b, --benchmark    show average speed instead of current speed.\n");
 	fprintf(fp, " -v, --verbose      show verbose run information.\n");
 	fprintf(fp, " -h, --help         show this help and exit.\n");
 	fprintf(fp, "\n");
+
+	fprintf(fp, "Available implementations:\n");
+
+	for (int i = 0; leek.implementations[i]; ++i) {
+		fprintf(fp, "  %s", leek.implementations[i]->name);
+		if (leek.implementations[i] == leek.current_impl)
+			fprintf(fp, " (default)");
+		fprintf(fp, "\n");
+	}
 }
 
 
@@ -100,7 +111,7 @@ static int leek_options_parse(int argc, char *argv[])
 		unsigned long val;
 		int c;
 
-		c = getopt_long(argc, argv, "l:p:i:o:k:bt:s::vh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:p:i:o:I:k:bt:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -145,6 +156,10 @@ static int leek_options_parse(int argc, char *argv[])
 				leek.config.prefix = optarg;
 				break;
 
+			case 'I':
+				leek.config.implementation = optarg;
+				break;
+
 			case 's':
 				leek.config.flags |= LEEK_FLAG_STOP;
 				if (!optarg)
@@ -177,6 +192,9 @@ static int leek_options_parse(int argc, char *argv[])
 		}
 	}
 	ret = 0;
+
+	if (leek.config.implementation)
+		ret = leek_implementation_select(leek.config.implementation);
 
 	if (!leek.config.threads || leek.config.threads > LEEK_THREADS_MAX) {
 		fprintf(stderr, "[-] error: thread count must be in range [1 - %u].\n", LEEK_THREADS_MAX);
@@ -488,6 +506,7 @@ static int leek_init(void)
 	printf("|           \\/        \\/         \\/  %6s \\/   |\n", LEEK_CPU_VERSION);
 	printf(".________________________________________________.\n\n");
 
+
 	/* Create output directory if needed */
 	if (leek.config.output_path) {
 		ret = leek_init_outdir();
@@ -497,10 +516,6 @@ static int leek_init(void)
 
 	/* OpenSSL locks allocation (required in MT environment) */
 	ret = leek_init_locks();
-	if (ret < 0)
-		goto out;
-
-	ret = leek_sha1_init();
 	if (ret < 0)
 		goto out;
 
@@ -522,6 +537,11 @@ static int leek_init(void)
 
 	if (ret < 0)
 		goto out;
+
+	if (leek.config.flags & LEEK_FLAG_VERBOSE) {
+		printf("[+] Using %s implementation on %u worker threads.\n",
+		       leek.current_impl->name, leek.config.threads);
+	}
 
 	ret = leek_workers_init();
 	if (ret < 0)
@@ -653,6 +673,9 @@ static void leek_metric_display(void)
 int main(int argc, char *argv[])
 {
 	int ret = -1;
+
+	/* Link known implementations to global leek structure */
+	leek_implementations_init();
 
 	/* Show help when no option is provided */
 	if (argc < 2) {
