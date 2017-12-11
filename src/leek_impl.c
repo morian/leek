@@ -8,6 +8,9 @@ static const struct leek_implementation *leek_implementations[] = {
 	&leek_impl_openssl, /* OpenSSL implementation */
 	&leek_impl_ssse3,   /* SSSE3 implementation */
 	&leek_impl_avx2,    /* AVX2 implementation */
+#ifndef NOAVX512
+	&leek_impl_avx512,  /* AVX512 implementation */
+#endif
 	NULL,
 };
 

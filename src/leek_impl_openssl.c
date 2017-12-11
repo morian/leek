@@ -12,7 +12,7 @@ static int leek_openssl_available(void)
 	return 1;
 }
 
-static void *leek_openssl_init(void)
+static void *leek_openssl_alloc(void)
 {
 	struct leek_crypto_openssl *lco;
 
@@ -115,7 +115,7 @@ const struct leek_implementation leek_impl_openssl = {
 	.name      = "OpenSSL",
 	.weight    = 1,
 	.available = leek_openssl_available,
-	.init      = leek_openssl_init,
+	.allocate  = leek_openssl_alloc,
 	.precalc   = leek_openssl_precalc,
 	.exhaust   = leek_openssl_exhaust,
 };

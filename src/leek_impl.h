@@ -17,7 +17,7 @@ struct leek_implementation {
 	int (*available) (void);
 
 	/* Initialize local structures (set lc->private_data, must be free-able) */
-	void *(*init) (void);
+	void *(*allocate) (void);
 
 	/* Perform SHA1 precalculus after a new RSA key pair had been generated */
 	int (*precalc) (struct leek_crypto *lc, const void *ptr, size_t len);
@@ -40,5 +40,6 @@ int leek_implementation_select(const char *name);
 extern const struct leek_implementation leek_impl_openssl;
 extern const struct leek_implementation leek_impl_ssse3;
 extern const struct leek_implementation leek_impl_avx2;
+extern const struct leek_implementation leek_impl_avx512;
 
 #endif /* !__LEEK_IMPL_H */

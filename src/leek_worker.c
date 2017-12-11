@@ -12,9 +12,9 @@
 
 
 /* Bunch of beautiful wrappers here */
-static void *leek_impl_init(void)
+static void *leek_impl_allocate(void)
 {
-	return leek.current_impl->init();
+	return leek.current_impl->allocate();
 }
 
 static int leek_impl_precalc(struct leek_crypto *lc, const uint8_t *der, size_t len)
@@ -178,7 +178,7 @@ static int leek_crypto_init(struct leek_crypto *lc)
 		goto out;
 	}
 
-	prv_data = leek_impl_init();
+	prv_data = leek_impl_allocate();
 	if (!prv_data)
 		goto out;
 

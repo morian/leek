@@ -15,7 +15,7 @@ static int leek_vecx_available(void)
 }
 
 #pragma GCC pop_options
-static void *leek_vecx_init(void)
+static void *leek_vecx_alloc(void)
 {
 	struct leek_vecx *lv;
 
@@ -358,12 +358,27 @@ static void leek_vecx_block_finalize(struct leek_vecx *lv, const void *ptr,
 /* Prepare exponent values used by exhaust loop */
 static void leek_exhaust_prepare(struct leek_vecx *lv)
 {
-	unsigned int expo_shift = 8 * lv->expo_pos;
+	vecx adder = vecx_even_numbers();
 	void *ptr[2];
-	vecx adder;
 
-	/* Values added to every lane */
-	adder = vecx_shl(vecx_even_numbers(), expo_shift);
+	/* Values added to every lane (instruction requires an immediate). */
+	switch (lv->expo_pos) {
+		case 0:
+			adder = vecx_shl(adder,  0);
+			break;
+
+		case 1:
+			adder = vecx_shl(adder,  8);
+			break;
+
+		case 2:
+			adder = vecx_shl(adder, 16);
+			break;
+
+		case 3:
+			adder = vecx_shl(adder, 24);
+			break;
+	};
 
 	/* Pointer to exponent words */
 	ptr[0] = &lv->block[VECX_WORD_SIZE * (lv->expo_round + 0)];
@@ -540,7 +555,7 @@ static int __flatten leek_vecx_exhaust(struct leek_worker *wk, struct leek_crypt
 		.name      = VECX_IMPL_NAME,                        \
 		.weight    = VECX_LANE_COUNT,                       \
 		.available = leek_vecx_available,                   \
-		.init      = leek_vecx_init,                        \
+		.allocate  = leek_vecx_alloc,                       \
 		.precalc   = leek_vecx_precalc,                     \
 		.exhaust   = leek_vecx_exhaust,                     \
 	}
