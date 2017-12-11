@@ -1,5 +1,7 @@
 language: c
 dist: trusty
+sudo: required
+group: travis_latest
 matrix:
   include:
     - os: linux
@@ -42,6 +44,9 @@ matrix:
 before_script:
   - eval "${MATRIX_EVAL}"
   - ${CC} --version
+  - wget 'https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test/+files/binutils_2.27-9ubuntu1_amd64.deb'
+  - sudo dpkg -i binutils_2.27-9ubuntu1_amd64.deb
+  - as --version
 script:
   - make
   - ./src/leek --help
