@@ -8,7 +8,7 @@ Leek
 About
 -----
 Leek is another tool to generate custom .onion addresses for [TOR] [hidden services](https://www.torproject.org/docs/hidden-services).
-This program leverages vector instructions sets (_SSSE3_ / _AVX2_) to compute 4 or 8 addresses at the same time.
+This program leverages vector instructions sets (_SSSE3_ / _AVX2_ / _AVX512_) to compute 4, 8 or 16 addresses in parallel.
 First-generation .onion address generation heavily relies on SHA1 hashes, that's why Leek also uses a redesigned version of SHA1.
 
 Search features include:
@@ -37,8 +37,7 @@ Default compilation produces a re-usable binary that you can transfer to any oth
 
 ```sh
 make
-cd src
-./leek --help
+./src/leek --help
 ```
 
 You can also get a slight increase in performances building a machine-specific binary using additional `CFLAGS`.
@@ -46,8 +45,7 @@ The generated binary will most likely not work on older machines though.
 
 ```sh
 make CFLAGS=-march=native
-cd src
-./leek --help
+./src/leek --help
 ```
 
 
@@ -70,6 +68,7 @@ Options
 		OpenSSL
 		SSSE3
 		AVX2 (default)
+		AVX512
 
 Usage
 -----
@@ -125,19 +124,20 @@ The underlying generation process is just a matter of luck and time.
 
 A few performance measurements (in MH/s) on different target CPUs.
 
-| CPU      | Base Freq.  | Thread | OpenSSL |   SSSE3 |    AVX2 |
-|----------|-------------|--------|---------|---------|---------|
-| i7-7700K | 4.20GHz     | 8      |      47 |     115 |     282 |
-| i7-6700  | 3.40GHz     | 8      |      43 |     105 |     254 |
-| i5-4690S | 3.20GHz     | 4      |      30 |      90 |     190 |
-| i7-4950U | 1.70GHz     | 4      |      13 |      36 |      79 |
+| CPU        | Base Freq.  | Core/Thread | OpenSSL |   SSSE3 |    AVX2 |  AVX512 |
+|------------|-------------|-------------|---------|---------|---------|---------|
+| Xeon 8124M |     3.00GHz |       8/16  |      45 |     165 |     355 |     735 |
+|   i7-7700K |     4.20GHz |        4/8  |      47 |     115 |     282 |     N/A |
+|   i7-6700  |     3.40GHz |        4/8  |      43 |     105 |     254 |     N/A |
+|   i5-4690S |     3.20GHz |        4/4  |      30 |      90 |     190 |     N/A |
+|   i7-4950U |     1.70GHz |        2/4  |      13 |      36 |      79 |     N/A |
 
 All performance measures are taken after an elapsed time of 60 seconds, using the following command:
 ```sh
 ./leek --benchmark --prefix leekleek
 ```
-Performances are all measured using any available GCC version, and default compile flags from leek Makefile.
-Note that leek uses all CPU cores available by default.
+Performances are all measured using any available GCC version with default compile flags from Makefile.
+Leek uses all available logical cores by default.
 
 
 Coarse average time (50% chances) to generate a .onion with a given prefix length on a 150MH/s configuration:
@@ -158,26 +158,35 @@ Coarse average time (50% chances) to generate a .onion with a given prefix lengt
 FAQ
 ---
 
-### I try to force-use AVX2 but it keeps crashing with "illegal instruction".
+### I try to force-use AVX2/AVX512 but it keeps crashing with "illegal instruction".
 
-Leek uses the best available implementation by default.
-If you want to forcedly a better implementation please make sure that your system does support it (see bellow).
+Leek uses the best implementation available on your system (by default).
+If you want to forcedly a more efficient implementation please make sure that your system has support for it (see bellow).
+
+### How do I check whether AVX512 is available on my CPU?
+
+AVX512-BW instruction set is available since 2017 and Skylake-SP Skylake-X CPUs.
+This means that this is now available only on very high-end desktop and high-end server computers.
+To check compatibility please run the following command:
+```sh
+grep avx512bw /proc/cpuinfo
+```
 
 ### How do I check whether AVX2 is available on my CPU?
 
 AVX2 instruction set is available since 2014 and Haswell processors (i3/i5/i7 4000 serie).
 It is also supported on AMD processors since 2015 and the Excavator family.
-Alternatively, you can simply run the following command:
+To check compatibility please run the following command:
 ```sh
-lscpu | grep avx2
+grep avx2 /proc/cpuinfo
 ```
 
 ### How do I check whether SSSE3 is available on my CPU?
 
 SSSE3 is available on all Intel processors since 2007 and the Core microarchitecture.
-When in doubt, feel free to run the following command:
+To check compatibility please run the following command:
 ```sh
-lscpu | grep ssse3
+grep ssse3 /proc/cpuinfo
 ```
 
 ### Will you port it to any Windows/MacOSX?
