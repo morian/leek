@@ -131,6 +131,9 @@ static inline vecx vecx_even_numbers(void)
 #define VECX_IMPL_NAME                     "AVX512"
 #define VECX_IMPL_ISA                    "avx512bw"
 
+/* Include macro expansion and generic SHA1 stuff here */
+#include "leek_vecx_core.h"
+
 /* This very dirty thing is necessary as GCC 5 does not recognize avx512bw
  * as a valid CPU option (but accepts to compile with it as a target...).
  * For now let's assume that avx512f is a sufficient discriminant

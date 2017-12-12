@@ -113,4 +113,7 @@ static inline vecx vecx_even_numbers(void)
 #define VECX_IMPL_NAME                    "SSSE3"
 #define VECX_IMPL_ISA                     "ssse3"
 
+/* Include macro expansion and generic SHA1 stuff here */
+#include "leek_vecx_core.h"
+
 #endif /* !__LEEK_IMPL_SSSE3_H */

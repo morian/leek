@@ -119,4 +119,7 @@ static inline vecx vecx_even_numbers(void)
 #define VECX_IMPL_NAME                     "AVX2"
 #define VECX_IMPL_ISA                      "avx2"
 
+/* Include macro expansion and generic SHA1 stuff here */
+#include "leek_vecx_core.h"
+
 #endif /* !__LEEK_IMPL_AVX2_H */

@@ -3,9 +3,10 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "leek_vecx_core.h"
-#include "leek_lookup.h"
+/* TO BE INCLUDED AFTER ANY SPECIFIC IMPLEMENTATION */
+/* THIS IS THE GENERIC IMPLEMENTATION HERE */
 
+#include "leek_lookup.h"
 
 /* This avoids unwanted instructions in this function. */
 #pragma GCC push_options
