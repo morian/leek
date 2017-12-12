@@ -134,6 +134,17 @@ static inline vecx vecx_even_numbers(void)
 /* Include macro expansion and generic SHA1 stuff here */
 #include "leek_vecx_core.h"
 
+/* Redefine some SHA1 operations using ternary logic operator (avx512f) */
+#undef vecx_xor3
+#undef vecx_F1
+#undef vecx_F3
+
+/* F2 and F4 are already using xor3 anyway */
+#define vecx_ternary         _mm512_ternarylogic_epi32
+#define vecx_xor3(x, y, z)   vecx_ternary(x, y, z, 0x96)
+#define vecx_F1(x, y, z)     vecx_ternary(x, y, z, 0xCA)
+#define vecx_F3(x, y, z)     vecx_ternary(x, y, z, 0xE8)
+
 /* This very dirty thing is necessary as GCC 5 does not recognize avx512bw
  * as a valid CPU option (but accepts to compile with it as a target...).
  * For now let's assume that avx512f is a sufficient discriminant
