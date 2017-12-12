@@ -15,7 +15,7 @@ static inline vecx vecx_zero(void)
 static inline vecx vecx_set(uint32_t x)
 {
 	return _mm512_set_epi32(x, x, x, x, x, x, x, x,
-                          x, x, x, x, x, x, x, x);
+	                        x, x, x, x, x, x, x, x);
 }
 
 static inline vecx vecx_load(const void *ptr)
@@ -75,17 +75,17 @@ static inline vecx vecx_bswap(vecx x)
 	 * It is possible however to emulate it using 2 AVX2 256b equivalent instructions.
 	 * Choice have been made to prefer AVX-512BW implementation **/
 	vecx mask =
-		_mm512_set_epi32(0x0c0d0e0fUL, 0x08090a0bUL, 0x04050607UL, 0x00010203UL,
-		                 0x0c0d0e0fUL, 0x08090a0bUL, 0x04050607UL, 0x00010203UL,
-		                 0x0c0d0e0fUL, 0x08090a0bUL, 0x04050607UL, 0x00010203UL,
-		                 0x0c0d0e0fUL, 0x08090a0bUL, 0x04050607UL, 0x00010203UL);
+		_mm512_set_epi32(0x3c3d3e3f, 0x38393a3b, 0x34353637, 0x30313233,
+		                 0x2c2d2e2f, 0x28292a2b, 0x24252627, 0x20212223,
+		                 0x1c1d1e1f, 0x18191a1b, 0x14151617, 0x10111213,
+		                 0x0c0d0e0f, 0x08090a0b, 0x04050607, 0x00010203);
 	return _mm512_shuffle_epi8(x, mask);
 }
 
 static inline vecx vecx_even_numbers(void)
 {
 	return _mm512_set_epi32(30, 28, 26, 24, 22, 20, 18, 16,
-                          14, 12, 10,  8,  6,  4,  2,  0);
+	                        14, 12, 10,  8,  6,  4,  2,  0);
 }
 
 /**
