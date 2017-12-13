@@ -3,14 +3,8 @@ dist: trusty
 sudo: required
 group: travis_latest
 matrix:
+  # GCC based compilation.
   include:
-    - os: linux
-      addons:
-        apt:
-          packages:
-            - libssl-dev
-      env:
-        - MATRIX_EVAL="CC=gcc"
     - os: linux
       addons:
         apt:
@@ -41,6 +35,38 @@ matrix:
             - gcc-7
       env:
         - MATRIX_EVAL="CC=gcc-7"
+
+    # CLANG based compilation.
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-trusty-3.9
+          packages:
+            - libssl-dev
+            - clang-3.9
+      env:
+        - MATRIX_EVAL="CC=clang-3.9"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-trusty-4.0
+          packages:
+            - libssl-dev
+            - clang-4.0
+      env:
+        - MATRIX_EVAL="CC=clang-4.0"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-trusty-5.0
+          packages:
+            - libssl-dev
+            - clang-5.0
+      env:
+        - MATRIX_EVAL="CC=clang-5.0"
 before_script:
   - eval "${MATRIX_EVAL}"
   - ${CC} --version
