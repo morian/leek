@@ -1,6 +1,5 @@
 #ifndef __LEEK_IMPL_AVX512_H
 # define __LEEK_IMPL_AVX512_H
-# pragma GCC target "avx512bw"
 # include <stdint.h>
 # include <immintrin.h>
 
@@ -53,20 +52,10 @@ static inline vecx vecx_add(vecx x, vecx y)
 	return _mm512_add_epi32(x, y);
 }
 
-static inline vecx vecx_shl(vecx x, int y)
-{
-	return _mm512_slli_epi32(x, y);
-}
-
-static inline vecx vecx_rol(vecx x, int y)
-{
-	return _mm512_rol_epi32(x, y);
-}
-
-static inline vecx vecx_ror(vecx x, int y)
-{
-	return _mm512_ror_epi32(x, y);
-}
+/* This is necessary with clang as 'y' is supposed to be an immediate. */
+#define vecx_shl(x, y)  _mm512_slli_epi32(x, y)
+#define vecx_rol(x, y)  _mm512_rol_epi32(x, y)
+#define vecx_ror(x, y)  _mm512_ror_epi32(x, y)
 
 static inline vecx vecx_bswap(vecx x)
 {

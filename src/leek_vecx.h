@@ -8,14 +8,11 @@
 
 #include "leek_lookup.h"
 
-/* This avoids unwanted instructions in this function. */
-#pragma GCC push_options
 static int leek_vecx_available(void)
 {
 	return __builtin_cpu_supports(VECX_IMPL_ISA);
 }
 
-#pragma GCC pop_options
 static void *leek_vecx_alloc(void)
 {
 	struct leek_vecx *lv;

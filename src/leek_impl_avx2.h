@@ -1,6 +1,5 @@
 #ifndef __LEEK_IMPL_AVX2_H
 # define __LEEK_IMPL_AVX2_H
-# pragma GCC target "avx2"
 # include <stdint.h>
 # include <immintrin.h>
 

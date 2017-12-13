@@ -1,6 +1,5 @@
 #ifndef __LEEK_IMPL_SSSE3_H
 # define __LEEK_IMPL_SSSE3_H
-# pragma GCC target "ssse3"
 # include <stdint.h>
 # include <immintrin.h>
 
