@@ -17,9 +17,11 @@ Search features include:
 
 There is no regex based lookup as you might find in eschalot, mostly because of the lack of interest.
 
-Some special thanks:
+Special thanks and references:
    - Leek software architecture is inspired by [eschalot] (itself forked from [shallot])
    - Original SHA1 vectorized implementation was provided by a friend and partially reworked
+   - [Intel Intrinsics Guide]
+   - [AVX512 Ternary functions] by [0x80.pl]
 
 
 Requirements
@@ -65,10 +67,10 @@ Options
 	 -h, --help         show this help and exit.
 	
 	Available implementations:
-		OpenSSL
-		SSSE3
-		AVX2 (default)
-		AVX512
+	  OpenSSL
+	  SSSE3
+	  AVX2 (default)
+	  AVX512
 
 Usage
 -----
@@ -205,3 +207,6 @@ No, please feel free to use a WSL or any kind of virtual machine.
    [travis_url]: <https://travis-ci.org/morian/leek>
    [license_img]: <https://img.shields.io/badge/license-MIT-blue.svg>
    [license_url]: <https://github.com/morian/leek/blob/master/LICENSE>
+   [AVX512 Ternary functions]: <http://0x80.pl/articles/avx512-ternary-functions.html>
+   [Intel Intrinsics Guide]: <https://software.intel.com/sites/landingpage/IntrinsicsGuide/>
+   [0x80.pl]: <http://0x80.pl>
