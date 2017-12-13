@@ -27,7 +27,7 @@ Special thanks and references:
 Requirements
 ------------
    - [OpenSSL]: For RSA generation and SHA1 rechecks (`libssl-dev` on Debian)
-   - [GCC]: Because we use GCC intrinsics and some specific optimizations.
+   - [GCC] or [CLANG]: Works on both (checked on clang-3.9, works since gcc-5)
 
 This code targets Linux systems but also works under [Windows Subsystem for Linux] with no noticeable performance drawback.
 
@@ -201,6 +201,7 @@ No, please feel free to use a WSL or any kind of virtual machine.
    [OpenSSL]: <https://www.openssl.org>
    [Linux]: <https://www.linux.org>
    [GCC]: <https://gcc.gnu.org>
+   [CLANG]: <https://clang.llvm.org/>
    [eschalot]: <https://github.com/ReclaimYourPrivacy/eschalot>
    [shallot]: <https://github.com/katmagic/Shallot>
    [travis_img]: <https://travis-ci.org/morian/leek.svg?branch=master>
