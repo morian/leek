@@ -343,10 +343,8 @@ static int leek_adress_recheck(const union leek_rawaddr *addr, const RSA *rsa)
 	int ret = -1;
 
 	der = leek_crypto_der_alloc(rsa, &derlen);
-	if (der) {
+	if (der)
 		SHA1(der, derlen, sha1.digest);
-		free(der);
-	}
 	else
 		goto out;
 
@@ -355,10 +353,12 @@ static int leek_adress_recheck(const union leek_rawaddr *addr, const RSA *rsa)
 		fprintf(stderr, "\naddress recheck failed\n");
 		leek_crypto_der_show(der, derlen, stderr);
 		funlockfile(stderr);
-		goto out;
+		goto der_free;
 	}
 
 	ret = 0;
+der_free:
+	free(der);
 out:
 	return ret;
 }
