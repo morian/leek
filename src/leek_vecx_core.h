@@ -121,7 +121,7 @@ struct leek_vecx {
 	vecx __cache_align PH[5]; /* Values a, b, c, d, e */
 
 	vecx PW_C00; /* Static word 0 */
-	vecx PW_C01; /* Sttati word 1 */
+	vecx PW_C01; /* Static word 1 */
 	vecx PW_C03; /* Static (stage 2) word 3 (exponent LSBs) */
 	vecx PW_C15; /* W word for cycle 15 (hash size) */
 
