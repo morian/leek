@@ -109,7 +109,7 @@ static int leek_crypto_rsa_rekey(struct leek_crypto *lc)
 	unsigned int derlen;
 	uint8_t *der = NULL;
 	RSA *rsa = NULL;
-	int ret = -1;
+	int ret;
 
 	rsa = RSA_new();
 	if (!rsa) {
@@ -151,6 +151,7 @@ out:
 error:
 	if (rsa)
 		RSA_free(rsa);
+	ret = -1;
 	goto out;
 }
 
