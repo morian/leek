@@ -35,7 +35,7 @@ static int leek_bucket_lookup(const struct leek_prefix_bucket *bucket, uint64_t 
 		if (bucket->data[piv] < val)
 			min = piv + 1;
 		else
-			max = piv - 1;
+			max = piv;
 	}
 
 	return (bucket->data[max] == val);
