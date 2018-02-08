@@ -601,15 +601,10 @@ static void leek_metric_timer_display(const char *prefix, uint64_t msecs)
 }
 
 
-static uint64_t leek_metric_estimate_get(uint64_t hash_count, uint64_t elapsed,
-                                         double tgt_probability)
+static uint64_t leek_metric_estimate_get(uint64_t hash_count, uint64_t elapsed)
 {
-	long double tgt_time_f;
-	uint64_t tgt_time = 0;
-
-	tgt_time_f =
-		(elapsed * logl(1 - (tgt_probability / 100)) / logl(1 - leek.prob_find_1)) / hash_count;
-	tgt_time = tgt_time_f;
+	long double tgt_time;
+	tgt_time = (((long double) elapsed) / (leek.prob_find_1 * hash_count));
 	return tgt_time;
 }
 
@@ -648,7 +643,7 @@ static void leek_metric_display(void)
 	       hash_total, hash_total_unit);
 
 	if (leek.last_hash_count) {
-		time_prc = leek_metric_estimate_get(leek.last_hash_count, elapsed, 50);
+		time_prc = leek_metric_estimate_get(leek.last_hash_count, elapsed);
 		leek_metric_timer_display("   T(avg):", time_prc);
 	}
 
