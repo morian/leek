@@ -190,7 +190,7 @@ int leek_options_parse(int argc, char *argv[])
 				break;
 
 			case 'o':
-				leek.config.output_path = optarg;
+				leek.config.result_dir = optarg;
 				break;
 
 			case 'i':

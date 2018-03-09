@@ -67,9 +67,6 @@ struct leek_context {
 	/* All command line options */
 	struct leek_options config;
 
-	/* Locks provided to OpenSSL */
-	pthread_mutex_t *openssl_locks;
-
 	/* Refers to all implementations known at build time */
 	const struct leek_implementation **implementations;
 

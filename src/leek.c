@@ -9,28 +9,13 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <openssl/crypto.h>
 #include <openssl/err.h>
 
 #include "leek.h"
 
 
-/* Global exported context structure */
+/* Global leek context structure */
 struct leek_context leek;
-
-
-static void leek_exit_locks(void)
-{
-	if (leek.openssl_locks) {
-		CRYPTO_set_locking_callback(NULL);
-
-		for(int i = 0; i < CRYPTO_num_locks(); ++i)
-			pthread_mutex_destroy(&leek.openssl_locks[i]);
-
-		OPENSSL_free(leek.openssl_locks);
-		leek.openssl_locks = NULL;
-	}
-}
 
 
 static void leek_exit(void)
@@ -44,7 +29,7 @@ static void leek_exit(void)
 		leek.worker = NULL;
 	}
 
-	leek_exit_locks();
+	leek_openssl_exit();
 }
 
 
@@ -140,70 +125,6 @@ static int leek_worker_join(void)
 }
 
 
-static void leek_lock_callback(int mode, int type, const char *file, int line)
-{
-	if(mode & CRYPTO_LOCK)
-		pthread_mutex_lock(&leek.openssl_locks[type]);
-	else
-		pthread_mutex_unlock(&leek.openssl_locks[type]);
-
-	(void) file;
-	(void) line;
-}
-
-
-static unsigned long leek_thread_id(void)
-{
-	return pthread_self();
-}
-
-
-static int leek_init_locks(void)
-{
-	int ret = -1;
-
-	leek.openssl_locks = OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
-	if (!leek.openssl_locks) {
-		fprintf(stderr, "[-] error: OPENSSL_malloc failed.\n");
-		goto out;
-	}
-
-	for(int i = 0; i < CRYPTO_num_locks(); ++i)
-		pthread_mutex_init(&leek.openssl_locks[i], NULL);
-
-	CRYPTO_set_id_callback(leek_thread_id);
-	CRYPTO_set_locking_callback(leek_lock_callback);
-
-	ret = 0;
-out:
-	return ret;
-}
-
-
-static int leek_init_outdir(void)
-{
-	int ret;
-
-	ret = access(leek.config.output_path, W_OK);
-	if (ret < 0) {
-		if (errno != ENOENT) {
-			fprintf(stderr, "[-] access: %s\n", strerror(errno));
-			goto out;
-		}
-
-		ret = mkdir(leek.config.output_path, 0700);
-		if (ret < 0) {
-			fprintf(stderr, "[-] mkdir: %s\n", strerror(errno));
-			goto out;
-		}
-	}
-
-out:
-	return ret;
-
-}
-
-
 static int leek_init_prefix(void)
 {
 	unsigned int length = strlen(leek.config.prefix);
@@ -293,14 +214,14 @@ static int leek_init(void)
 
 
 	/* Create output directory if needed */
-	if (leek.config.output_path) {
-		ret = leek_init_outdir();
+	if (leek.config.result_dir) {
+		ret = leek_result_dir_init();
 		if (ret < 0)
 			goto out;
 	}
 
 	/* OpenSSL locks allocation (required in MT environment) */
-	ret = leek_init_locks();
+	ret = leek_openssl_init();
 	if (ret < 0)
 		goto out;
 

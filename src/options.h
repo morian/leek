@@ -5,7 +5,7 @@
 struct leek_options {
 	const char *input_path;     /* Input prefix file */
 	const char *prefix;         /* Single prefix mode */
-	const char *output_path;    /* Output directory */
+	const char *result_dir;     /* Output directory */
 	const char *implementation; /* Choosen implementation */
 
 	unsigned int keysize;       /* RSA key size */

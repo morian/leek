@@ -373,12 +373,12 @@ static void leek_result_write(const uint8_t *onion, const uint8_t *prv_key,
 	int ret;
 	int fd;
 
-	result_path_sz = strlen(leek.config.output_path) + LEEK_ADDRESS_LEN
+	result_path_sz = strlen(leek.config.result_dir) + LEEK_ADDRESS_LEN
 	                 + strlen(".onion.key") + 2;
 	result_path = alloca(result_path_sz);
 
 	snprintf(result_path, result_path_sz, "%s/%.16s.onion.key",
-	         leek.config.output_path, onion);
+	         leek.config.result_dir, onion);
 
 	fd = open(result_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0) {
@@ -425,7 +425,7 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 		printf("[+] Found %.16s.onion (size=%u, popcnt(e)=%u, ID=%u)\n",
 		       onion_address, length, popcnt, found_hash_count);
 
-		if (leek.config.output_path)
+		if (leek.config.result_dir)
 			leek_result_write(onion_address, prv_output, buffer->length);
 		else {
 			fwrite_unlocked(prv_output, buffer->length, 1, stdout);

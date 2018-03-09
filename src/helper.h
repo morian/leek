@@ -50,4 +50,16 @@ struct leek_prefixes *leek_readfile(const char *filename,
                                     unsigned int flt_min, unsigned int flt_max);
 void leek_prefixes_free(struct leek_prefixes *lp);
 
+
+
+/* Create result directory if needed */
+int leek_result_dir_init(void);
+
+/* OpenSSL locks (required for MT operations) */
+int leek_openssl_init(void);
+
+/* Corresponding destructor for these locks and cache cleanup */
+void leek_openssl_exit(void);
+
+
 #endif /* !__LEAK_HELPER_H */
