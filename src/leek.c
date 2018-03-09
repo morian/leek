@@ -143,7 +143,7 @@ static int leek_init_prefix(void)
 
 	leek.config.len_min = length;
 	leek.config.len_max = leek.config.len_min;
-	leek.prob_find_1 = 1.0 / powl(2, 5 * length);
+	leek.prob_find_1 = 1.0 / powl(2, LEEK_RAWADDR_CHAR_BITS * length);
 
 	if (leek.config.flags & LEEK_OPTION_VERBOSE)
 		printf("[+] Loaded a single target address with size %u\n", length);

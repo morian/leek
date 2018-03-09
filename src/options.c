@@ -11,10 +11,8 @@
 /**
  * TODO:
  * - Remove benchmark mode (default)
- * - Remove key-size (default to 1024)
  * - Implement --no-results and --duration
  * - Refactor all included files and file names
- * - Separate all options in a option.h file
  **/
 
 
@@ -24,7 +22,6 @@ static const struct option leek_long_options[] = {
 	{"output",     1, 0, 'o'},
 	{"length",     1, 0, 'l'},
 	{"duration",   1, 0, 'd'},
-	{"key-size",   1, 0, 'k'},
 	{"benchmark",  0, 0, 'b'},
 	{"threads",    1, 0, 't'},
 	{"impl",       1, 0, 'I'},
@@ -108,17 +105,6 @@ static int leek_options_check(void)
 		ret = -1;
 	}
 
-	if (leek.config.keysize < LEEK_KEYSIZE_MIN || leek.config.keysize > LEEK_KEYSIZE_MAX) {
-		fprintf(stderr, "[-] error: key size must be in range [%u - %u].\n",
-		        LEEK_KEYSIZE_MIN, LEEK_KEYSIZE_MAX);
-		ret = -1;
-	}
-
-	if (__builtin_popcount(leek.config.keysize) > 1) {
-		fprintf(stderr, "[-] error: key size must be a power of 2.\n");
-		ret = -1;
-	}
-
 	if (   (leek.config.len_min < LEEK_LENGTH_MIN)
 	    || (leek.config.len_max > LEEK_LENGTH_MAX)
 	    || (leek.config.len_min > leek.config.len_max)) {
@@ -151,27 +137,17 @@ int leek_options_parse(int argc, char *argv[])
 
 	/* These are default values */
 	leek.config.threads = get_nprocs();
-	leek.config.keysize = LEEK_KEYSIZE_MIN;
 	leek.config.mode = LEEK_MODE_MULTI;
 
 	while (1) {
 		unsigned long val;
 		int c;
 
-		c = getopt_long(argc, argv, "l:p:i:o:I:k:bt:s::vh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:p:i:o:I:bt:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 
 		switch (c) {
-			case 'k':
-				val = strtoul(optarg, NULL, 10);
-				if (errno == ERANGE || val > UINT_MAX) {
-					fprintf(stderr, "[-] error: unable to read key size argument.\n");
-					goto out;
-				}
-				leek.config.keysize = val;
-				break;
-
 			case 't':
 				val = strtoul(optarg, NULL, 10);
 				if (errno == ERANGE || val > UINT_MAX) {

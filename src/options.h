@@ -8,7 +8,6 @@ struct leek_options {
 	const char *result_dir;     /* Output directory */
 	const char *implementation; /* Choosen implementation */
 
-	unsigned int keysize;       /* RSA key size */
 	unsigned int threads;       /* Number of running threads */
 	unsigned int stop_count;    /* Stop after # successes (with LEEK_FLAG_STOP) */
 	unsigned int len_min;       /* Minimum prefix size */

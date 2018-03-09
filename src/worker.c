@@ -121,7 +121,7 @@ static int leek_crypto_rsa_rekey(struct leek_crypto *lc)
 	if (!RAND_status())
 		RAND_load_file("/dev/urandom", 1024);
 
-	ret = RSA_generate_key_ex(rsa, leek.config.keysize, lc->big_e, NULL);
+	ret = RSA_generate_key_ex(rsa, LEEK_RSA_KEYSIZE, lc->big_e, NULL);
 	if (!ret) {
 		leek_crypto_error("RSA key generation failed");
 		goto error;
