@@ -1,14 +1,10 @@
 #define _XOPEN_SOURCE   500
-#include <errno.h>
-#include <getopt.h>
-#include <limits.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/sysinfo.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -18,221 +14,9 @@
 
 #include "leek_cpu.h"
 
+
+/* Global exported context structure */
 struct leek_context leek;
-
-
-static struct option leek_long_options[] = {
-	{"input",     1, 0, 'i'},
-	{"prefix",    1, 0, 'p'},
-	{"outdir",    1, 0, 'o'},
-	{"length",    1, 0, 'l'},
-	{"key-size",  1, 0, 'k'},
-	{"benchmark", 0, 0, 'b'},
-	{"threads",   1, 0, 't'},
-	{"impl",      1, 0, 'I'},
-	{"stop",      2, 0, 's'},
-	{"verbose",   0, 0, 'v'},
-	{"help",      0, 0, 'h'},
-	{NULL, 0, 0, 0},
-};
-
-
-static void leek_usage(FILE *fp, const char *prog_name)
-{
-	fprintf(fp, "Usage: %s [OPTIONS]\n", prog_name);
-	fprintf(fp, "\n");
-	fprintf(fp, " -p, --prefix       single prefix attack.\n");
-	fprintf(fp, " -i, --input        input dictionary with prefixes.\n");
-	fprintf(fp, " -o, --output       output directory (default prints on stdout).\n");
-	fprintf(fp, " -l, --length=N:M   length filter for dictionary attack [%u-%u].\n",
-	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
-	fprintf(fp, " -t, --threads=#    worker threads count (default is all cores).\n");
-	fprintf(fp, " -I, --impl=#       select implementation (see bellow).\n");
-	fprintf(fp, " -s, --stop(=1)     stop processing after # success (default is infinite).\n");
-	fprintf(fp, " -b, --benchmark    show average speed instead of current speed.\n");
-	fprintf(fp, " -v, --verbose      show verbose run information.\n");
-	fprintf(fp, " -h, --help         show this help and exit.\n");
-	fprintf(fp, "\n");
-
-	fprintf(fp, "Available implementations:\n");
-
-	for (int i = 0; leek.implementations[i]; ++i) {
-		fprintf(fp, "  %s", leek.implementations[i]->name);
-		if (leek.implementations[i] == leek.current_impl)
-			fprintf(fp, " (default)");
-		fprintf(fp, "\n");
-	}
-}
-
-
-static int leek_range_parse(const char * ptr_a,
-                            unsigned int * arg_a, unsigned int * arg_b)
-{
-	const char *ptr_b;
-	unsigned long val_a;
-	unsigned long val_b;
-	int ret = -1;
-
-	ptr_b = strchr(ptr_a, ':');
-	if (!ptr_b)
-		goto out;
-	ptr_b++;
-
-	val_a = strtoul(ptr_a, NULL, 10);
-	if (errno == ERANGE || val_a > UINT_MAX)
-		goto out;
-
-	val_b = strtoul(ptr_b, NULL, 10);
-	if (errno == ERANGE || val_b > UINT_MAX)
-		goto out;
-
-	*arg_a = val_a;
-	*arg_b = val_b;
-
-	ret = 0;
-out:
-	return ret;
-}
-
-
-static int leek_options_parse(int argc, char *argv[])
-{
-	int ret = -1;
-
-	/* Automatically configured while loading prefixes */
-	leek.config.len_min = LEEK_LENGTH_MIN;
-	leek.config.len_max = LEEK_LENGTH_MAX;
-
-	/* These are default values */
-	leek.config.threads = get_nprocs();
-	leek.config.keysize = LEEK_KEYSIZE_MIN;
-	leek.config.mode = LEEK_MODE_MULTI;
-
-	while (1) {
-		unsigned long val;
-		int c;
-
-		c = getopt_long(argc, argv, "l:p:i:o:I:k:bt:s::vh", leek_long_options, NULL);
-		if (c == -1)
-			break;
-
-		switch (c) {
-			case 'k':
-				val = strtoul(optarg, NULL, 10);
-				if (errno == ERANGE || val > UINT_MAX) {
-					fprintf(stderr, "[-] error: unable to read key size argument.\n");
-					goto out;
-				}
-				leek.config.keysize = val;
-				break;
-
-			case 't':
-				val = strtoul(optarg, NULL, 10);
-				if (errno == ERANGE || val > UINT_MAX) {
-					fprintf(stderr, "[-] error: unable to read threads count argument.\n");
-					goto out;
-				}
-				leek.config.threads = val;
-				break;
-
-			case 'l':
-				ret = leek_range_parse(optarg, &leek.config.len_min, &leek.config.len_max);
-				if (ret < 0) {
-					fprintf(stderr, "[-] error: unable to read length argument.\n");
-					goto out;
-				}
-				break;
-
-			case 'o':
-				leek.config.output_path = optarg;
-				break;
-
-			case 'i':
-				leek.config.mode = LEEK_MODE_MULTI;
-				leek.config.input_path = optarg;
-				break;
-
-			case 'p':
-				leek.config.mode = LEEK_MODE_SINGLE;
-				leek.config.prefix = optarg;
-				break;
-
-			case 'I':
-				leek.config.implementation = optarg;
-				break;
-
-			case 's':
-				leek.config.flags |= LEEK_FLAG_STOP;
-				if (!optarg)
-					leek.config.stop_count = 1;
-				else {
-					val = strtoul(optarg, NULL, 10);
-					if (errno == ERANGE || val > UINT_MAX) {
-						fprintf(stderr, "[-] error: unable to read stop argument.\n");
-						goto out;
-					}
-					leek.config.stop_count = val;
-				}
-				break;
-
-			case 'b':
-				leek.config.flags |= LEEK_FLAG_BENCHMARK;
-				break;
-
-			case 'v':
-				leek.config.flags |= LEEK_FLAG_VERBOSE;
-				break;
-
-			case 'h':
-				leek_usage(stdout, argv[0]);
-				exit(EXIT_SUCCESS);
-
-			default:
-				leek_usage(stderr, argv[0]);
-				goto out;
-		}
-	}
-	ret = 0;
-
-	if (leek.config.implementation)
-		ret = leek_implementation_select(leek.config.implementation);
-
-	if (!leek.config.threads || leek.config.threads > LEEK_THREADS_MAX) {
-		fprintf(stderr, "[-] error: thread count must be in range [1 - %u].\n", LEEK_THREADS_MAX);
-		ret = -1;
-	}
-
-	if (leek.config.keysize < LEEK_KEYSIZE_MIN || leek.config.keysize > LEEK_KEYSIZE_MAX) {
-		fprintf(stderr, "[-] error: key size must be in range [%u - %u].\n",
-		        LEEK_KEYSIZE_MIN, LEEK_KEYSIZE_MAX);
-		ret = -1;
-	}
-
-	if (__builtin_popcount(leek.config.keysize) > 1) {
-		fprintf(stderr, "[-] error: key size must be a power of 2.\n");
-		ret = -1;
-	}
-
-	if (   (leek.config.len_min < LEEK_LENGTH_MIN)
-	    || (leek.config.len_max > LEEK_LENGTH_MAX)
-	    || (leek.config.len_min > leek.config.len_max)) {
-		fprintf(stderr, "[-] error: provided length range is invalid [%u-%u].\n",
-		        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
-		ret = -1;
-	}
-
-	if ((leek.config.flags & LEEK_FLAG_STOP) && !leek.config.stop_count) {
-		fprintf(stderr, "[-] error: stop argument cannot be 0.\n");
-		ret = -1;
-	}
-
-	if (!leek.config.input_path && !leek.config.prefix) {
-		fprintf(stderr, "[-] error: no prefix file or single prefix provided.\n");
-		ret = -1;
-	}
-out:
-	return ret;
-}
 
 
 static void leek_exit_locks(void)
@@ -440,7 +224,7 @@ static int leek_init_prefix(void)
 	leek.config.len_max = leek.config.len_min;
 	leek.prob_find_1 = 1.0 / powl(2, 5 * length);
 
-	if (leek.config.flags & LEEK_FLAG_VERBOSE)
+	if (leek.config.flags & LEEK_OPTION_VERBOSE)
 		printf("[+] Loaded a single target address with size %u\n", length);
 
 out:
@@ -468,7 +252,7 @@ static int leek_init_prefixes(void)
 	leek.prob_find_1 = lp->prob_find_1;
 	leek.prefixes = lp;
 
-	if (leek.config.flags & LEEK_FLAG_VERBOSE) {
+	if (leek.config.flags & LEEK_OPTION_VERBOSE) {
 		if (lp->length_min == lp->length_max)
 			printf("[+] Loaded %u valid prefixes with size %u.\n",
 			       lp->word_count, lp->length_min);
@@ -539,7 +323,7 @@ static int leek_init(void)
 	if (ret < 0)
 		goto out;
 
-	if (leek.config.flags & LEEK_FLAG_VERBOSE) {
+	if (leek.config.flags & LEEK_OPTION_VERBOSE) {
 		printf("[+] Using %s implementation on %u worker threads.\n",
 		       leek.current_impl->name, leek.config.threads);
 	}
@@ -569,8 +353,8 @@ static uint64_t leek_hashcount_update(void)
 }
 
 
-void leek_metric_humanize(double value, double *result,
-                          unsigned char *result_unit)
+static void leek_metric_humanize(double value, double *result,
+                                 unsigned char *result_unit)
 {
 	static unsigned char units[] = " KMGTPE";
 	static unsigned int units_len = sizeof(units);
@@ -624,7 +408,7 @@ static void leek_metric_display(void)
 	long double prob_found;
 
 	/* On benchmark configuration we show the overall hash/rate */
-	if (leek.config.flags & LEEK_FLAG_BENCHMARK)
+	if (leek.config.flags & LEEK_OPTION_BENCHMARK)
 		hash_rate_raw = (1000.0 * leek.last_hash_count) / elapsed;
 	else
 		hash_rate_raw = (1000000.0 * hash_diff) / time_diff;
@@ -672,12 +456,6 @@ int main(int argc, char *argv[])
 
 	/* Link known implementations to global leek structure */
 	leek_implementations_init();
-
-	/* Show help when no option is provided */
-	if (argc < 2) {
-		leek_usage(stdout, argv[0]);
-		goto out;
-	}
 
 	ret = leek_options_parse(argc, argv);
 	if (ret < 0)

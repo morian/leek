@@ -9,13 +9,14 @@
 # include <openssl/rsa.h>
 
 # include "leek_helper.h"
+# include "leek_options.h"
 
 # ifndef OPENSSL_VERSION_1_1
 #  define OPENSSL_VERSION_1_1   0x10100000L
 # endif
 
 /* Arbitrary maximum thread count */
-# define LEEK_CPU_VERSION          "v1.5.3"
+# define LEEK_CPU_VERSION          "v1.9.9"
 # define LEEK_LENGTH_MIN                  4
 # define LEEK_LENGTH_MAX   LEEK_ADDRESS_LEN
 # define LEEK_THREADS_MAX               512
@@ -60,22 +61,11 @@ struct leek_worker {
 
 # include "leek_impl.h"
 
-struct leek_context {
-	/* Structure holding configuration from argument parsing */
-	struct {
-		const char *input_path;     /* Input prefix file */
-		const char *prefix;         /* Single prefix mode */
-		const char *output_path;    /* Output directory */
-		const char *implementation; /* Choosen implementation */
 
-		unsigned int keysize;       /* RSA key size */
-		unsigned int threads;       /* Number of running threads */
-		unsigned int stop_count;    /* Stop after # successes (with LEEK_FLAG_STOP) */
-		unsigned int len_min;       /* Minimum prefix size */
-		unsigned int len_max;       /* Maximum prefix size */
-		unsigned int flags;         /* See enum bellow */
-		unsigned int mode;          /* See other enum bellow */
-	} config;
+/* leek application context */
+struct leek_context {
+	/* All command line options */
+	struct leek_options config;
 
 	/* Locks provided to OpenSSL */
 	pthread_mutex_t *openssl_locks;
@@ -107,19 +97,6 @@ struct leek_context {
 
 	/* Probability to have a hit on a single hash try. */
 	long double prob_find_1;
-};
-
-/* Enumeration of individual flags from configuration */
-enum {
-	LEEK_FLAG_VERBOSE   = (1 << 0),  /* Run in verbose mode */
-	LEEK_FLAG_STOP      = (1 << 1),  /* Stop after a single success */
-	LEEK_FLAG_BENCHMARK = (1 << 2),  /* Show overall hashrate instead of local */
-};
-
-/* Enumeration of different lookup modes available */
-enum {
-	LEEK_MODE_MULTI     =  0,  /* Multiple prefixes lookup */
-	LEEK_MODE_SINGLE    =  1,  /* Single prefix lookup */
 };
 
 /* Worker function (thread point of entry) */
