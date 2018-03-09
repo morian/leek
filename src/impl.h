@@ -1,6 +1,11 @@
 #ifndef __LEEK_IMPL_H
 # define __LEEK_IMPL_H
 
+/* Forward declarations */
+struct leek_crypto;
+struct leek_worker;
+
+
 /* Holds different leek implementations */
 struct leek_implementation {
 	/* Readable name of the target implementation */

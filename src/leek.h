@@ -9,6 +9,7 @@
 # include <openssl/rsa.h>
 
 # include "helper.h"
+# include "impl.h"
 # include "options.h"
 
 # define LEEK_CPU_VERSION          "v1.9.9"
@@ -17,6 +18,7 @@
 # define LEEK_LENGTH_MAX   LEEK_ADDRESS_LEN
 # define LEEK_THREADS_MAX               512
 # define LEEK_MONITOR_INTERVAL          200 /* msecs */
+
 
 # ifndef OPENSSL_VERSION_1_1
 #  define OPENSSL_VERSION_1_1   0x10100000L
@@ -39,8 +41,6 @@ struct leek_worker {
 	unsigned int id;
 	pthread_t thread;
 };
-
-# include "impl.h"
 
 
 /* leek application context */
