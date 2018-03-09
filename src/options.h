@@ -1,7 +1,6 @@
 #ifndef __LEEK_OPTIONS_H
 # define __LEEK_OPTIONS_H
 
-
 	/* Structure holding configuration from argument parsing */
 struct leek_options {
 	const char *input_path;     /* Input prefix file */

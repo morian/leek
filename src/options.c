@@ -6,7 +6,7 @@
 #include <string.h>
 #include <sys/sysinfo.h>
 
-#include "leek_cpu.h"
+#include "leek.h"
 
 /**
  * TODO:

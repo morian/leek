@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "leek_cpu.h"
-#include "leek_impl_openssl.h"
-#include "leek_lookup.h"
+#include "leek.h"
+#include "impl_openssl.h"
+#include "lookup.h"
 
 
 static int leek_openssl_available(void)

@@ -1,6 +1,6 @@
 #ifndef __LEEK_LOOKUP_H
 # define __LEEK_LOOKUP_H
-# include "leek_cpu.h"
+# include "leek.h"
 
 /* Lookup masks for last 64 LSBs (used by lookup functions) */
 static uint64_t leek_lookup_mask[LEEK_LENGTH_MAX + 1] = {

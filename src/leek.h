@@ -1,5 +1,5 @@
-#ifndef __LEEK_CPU_H
-# define __LEEK_CPU_H
+#ifndef __LEEK_H
+# define __LEEK_H
 # include <pthread.h>
 # include <stdint.h>
 # include <stdio.h>
@@ -8,15 +8,11 @@
 # include <openssl/bn.h>
 # include <openssl/rsa.h>
 
-# include "leek_helper.h"
-# include "leek_options.h"
+# include "helper.h"
+# include "options.h"
 
-# ifndef OPENSSL_VERSION_1_1
-#  define OPENSSL_VERSION_1_1   0x10100000L
-# endif
-
-/* Arbitrary maximum thread count */
 # define LEEK_CPU_VERSION          "v1.9.9"
+
 # define LEEK_LENGTH_MIN                  4
 # define LEEK_LENGTH_MAX   LEEK_ADDRESS_LEN
 # define LEEK_THREADS_MAX               512
@@ -24,6 +20,10 @@
 # define LEEK_KEYSIZE_MAX         (1 << 13)
 # define LEEK_MONITOR_INTERVAL          200 /* msecs */
 # define LEEK_CACHELINE_SZ               64 /* bytes */
+
+# ifndef OPENSSL_VERSION_1_1
+#  define OPENSSL_VERSION_1_1   0x10100000L
+# endif
 
 /* This value ensures that our exponent will always be 4 bytes wide
  * We may consider starting at RSA_F4 instead and handle 3 bytes exponent. */
@@ -59,7 +59,7 @@ struct leek_worker {
 	pthread_t thread;
 };
 
-# include "leek_impl.h"
+# include "impl.h"
 
 
 /* leek application context */
@@ -113,4 +113,4 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 /* Global program context structure. */
 extern struct leek_context leek;
 
-#endif /* !__LEEK_CPU_H */
+#endif /* !__LEEK_H */

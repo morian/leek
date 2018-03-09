@@ -121,7 +121,7 @@ static inline vecx vecx_even_numbers(void)
 #define VECX_IMPL_ISA                    "avx512bw"
 
 /* Include macro expansion and generic SHA1 stuff here */
-#include "leek_vecx_core.h"
+#include "vecx_core.h"
 
 /* Redefine some SHA1 operations using ternary logic operator (avx512f) */
 #undef vecx_xor3

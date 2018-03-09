@@ -12,7 +12,7 @@
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 
-#include "leek_cpu.h"
+#include "leek.h"
 
 
 /* Global exported context structure */

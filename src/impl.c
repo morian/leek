@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include "leek_cpu.h"
+#include "leek.h"
 
 
 /* All built implementations are here. */
@@ -8,11 +8,10 @@ static const struct leek_implementation *leek_implementations[] = {
 	&leek_impl_openssl, /* OpenSSL implementation */
 	&leek_impl_ssse3,   /* SSSE3 implementation */
 	&leek_impl_avx2,    /* AVX2 implementation */
-#ifndef NOAVX512
 	&leek_impl_avx512,  /* AVX512 implementation */
-#endif
 	NULL,
 };
+
 
 void leek_implementation_select_best(void)
 {
@@ -35,6 +34,7 @@ void leek_implementation_select_best(void)
 	leek.current_impl = leek.implementations[best_pos];
 }
 
+
 int leek_implementation_select(const char *name)
 {
 	const struct leek_implementation *selected = NULL;
@@ -54,6 +54,7 @@ int leek_implementation_select(const char *name)
 
 	return (selected) ? 0 : -1;
 }
+
 
 void leek_implementations_init(void)
 {

@@ -6,7 +6,7 @@
 /* TO BE INCLUDED AFTER ANY SPECIFIC IMPLEMENTATION */
 /* THIS IS THE GENERIC IMPLEMENTATION HERE */
 
-#include "leek_lookup.h"
+#include "lookup.h"
 
 static int leek_vecx_available(void)
 {

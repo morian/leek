@@ -8,7 +8,7 @@
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 
-#include "leek_cpu.h"
+#include "leek.h"
 
 
 /* Bunch of beautiful wrappers here */

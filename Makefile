@@ -26,8 +26,8 @@ clean:
 	rm --force $(L_PROGS)
 
 # Target specific compile options.
-src/leek_impl_ssse3.o:  CFLAGS+=-mssse3
-src/leek_impl_avx2.o:   CFLAGS+=-mavx2
-src/leek_impl_avx512.o: CFLAGS+=-mavx512bw
+src/impl_ssse3.o:  CFLAGS+=-mssse3
+src/impl_avx2.o:   CFLAGS+=-mavx2
+src/impl_avx512.o: CFLAGS+=-mavx512bw
 
 .PHONY: $(PHONY)
