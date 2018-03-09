@@ -297,7 +297,6 @@ int leek_result_dir_init(void)
 
 out:
 	return ret;
-
 }
 
 

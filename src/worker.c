@@ -14,17 +14,17 @@
 /* Bunch of beautiful wrappers here */
 static void *leek_impl_allocate(void)
 {
-	return leek.current_impl->allocate();
+	return leek.implementation->allocate();
 }
 
 static int leek_impl_precalc(struct leek_crypto *lc, const uint8_t *der, size_t len)
 {
-	return leek.current_impl->precalc(lc, der, len);
+	return leek.implementation->precalc(lc, der, len);
 }
 
 static int leek_impl_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 {
-	return leek.current_impl->exhaust(wk, lc);
+	return leek.implementation->exhaust(wk, lc);
 }
 
 
@@ -99,7 +99,6 @@ static void leek_crypto_der_show(const uint8_t *der, unsigned int len, FILE *fp)
 	funlockfile(fp);
 }
 #else
-
 # define leek_crypto_der_show(...)
 #endif
 

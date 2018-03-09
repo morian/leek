@@ -67,11 +67,8 @@ struct leek_context {
 	/* All command line options */
 	struct leek_options config;
 
-	/* Refers to all implementations known at build time */
-	const struct leek_implementation **implementations;
-
 	/* Chosen implementation */
-	const struct leek_implementation *current_impl;
+	const struct leek_implementation *implementation;
 
 	/* All worker structures (one per-thread) */
 	struct leek_worker *worker;

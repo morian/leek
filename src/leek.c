@@ -246,7 +246,7 @@ static int leek_init(void)
 
 	if (leek.config.flags & LEEK_OPTION_VERBOSE) {
 		printf("[+] Using %s implementation on %u worker threads.\n",
-		       leek.current_impl->name, leek.config.threads);
+		       leek.implementation->name, leek.config.threads);
 	}
 
 	ret = leek_workers_init();

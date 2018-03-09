@@ -57,9 +57,9 @@ static void leek_usage_show(FILE *fp, const char *prog_name)
 
 	fprintf(fp, "Available implementations:\n");
 
-	for (int i = 0; leek.implementations[i]; ++i) {
-		fprintf(fp, "  %s", leek.implementations[i]->name);
-		if (leek.implementations[i] == leek.current_impl)
+	for (int i = 0; leek_implementations[i]; ++i) {
+		fprintf(fp, "  %s", leek_implementations[i]->name);
+		if (leek_implementations[i] == leek.implementation)
 			fprintf(fp, " (default)");
 		fprintf(fp, "\n");
 	}

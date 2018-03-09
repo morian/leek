@@ -1,10 +1,6 @@
 #ifndef __LEEK_IMPL_H
 # define __LEEK_IMPL_H
 
-/** DO NOT INCLUDE THIS FILE DIRECTLY **/
-/** PLEASE INCLUDE leek_cpu.h instead **/
-
-
 /* Holds different leek implementations */
 struct leek_implementation {
 	/* Readable name of the target implementation */
@@ -30,16 +26,17 @@ struct leek_implementation {
 /* Link all implementations to the global structure */
 void leek_implementations_init(void);
 
-/* Find best implementation to use (default) */
-void leek_implementation_select_best(void);
-
 /* Select implementation by name */
 int leek_implementation_select(const char *name);
 
+
 /** All known implementations (build time) **/
-extern const struct leek_implementation leek_impl_openssl;
-extern const struct leek_implementation leek_impl_ssse3;
-extern const struct leek_implementation leek_impl_avx2;
-extern const struct leek_implementation leek_impl_avx512;
+const struct leek_implementation leek_impl_openssl;
+const struct leek_implementation leek_impl_ssse3;
+const struct leek_implementation leek_impl_avx2;
+const struct leek_implementation leek_impl_avx512;
+
+/* All built implementations in a nice structure */
+extern const struct leek_implementation *leek_implementations[];
 
 #endif /* !__LEEK_IMPL_H */
