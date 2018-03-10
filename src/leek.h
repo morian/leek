@@ -8,9 +8,11 @@
 # include <openssl/bn.h>
 # include <openssl/rsa.h>
 
+# include "hashes.h"
 # include "helper.h"
 # include "impl.h"
 # include "options.h"
+# include "stats.h"
 
 # define LEEK_CPU_VERSION          "v1.9.9"
 
@@ -46,22 +48,23 @@ struct leek_worker {
 /* leek application context */
 struct leek_context {
 	/* All command line options */
-	struct leek_options config;
+	struct leek_options options;
 
 	/* Chosen implementation (best available by default) */
 	const struct leek_implementation *implementation;
 
+	/* All loaded hashes */
+	struct leek_hashes hashes;
+
+
 	/* All worker structures (one per-thread) */
 	struct leek_worker *worker;
 
-	union {
-		/* Tree of loaded prefixes from input file. */
-		struct leek_prefixes *prefixes;
+	/* All predictions and measurements */
+	struct leek_stats stats;
 
-		/* Single address lookup mode */
-		union leek_rawaddr address;
-	};
 
+	/* TODO: move this to statistics structure */
 	unsigned int found_hash_count;
 	unsigned int error_hash_count;
 
@@ -69,19 +72,14 @@ struct leek_context {
 	struct timespec ts_start;
 	struct timespec ts_last;
 	uint64_t last_hash_count;
-
-	/* Probability to have a hit on a single hash try. */
-	long double prob_find_1;
 };
 
 /* Worker function (thread point of entry) */
 void *leek_worker(void *arg);
 
-/* Address post validation (called by exhaust) */
-int leek_address_check(struct leek_crypto *lc, unsigned int e,
-                       const union leek_rawaddr *addr);
-
 /* Show a final result */
+int leek_result_recheck(struct leek_crypto *lc, uint32_t e,
+                        const union leek_rawaddr *addr);
 void leek_result_display(RSA *rsa, uint32_t e, int length,
                          const union leek_rawaddr *addr);
 

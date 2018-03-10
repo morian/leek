@@ -37,9 +37,9 @@ static void leek_crypto_error(const char *prefix)
 	message = ERR_reason_error_string(error);
 
 	if (message)
-		fprintf(stderr, "[-] %s: %s\n", prefix, message);
+		fprintf(stderr, "error: %s: %s\n", prefix, message);
 	else
-		fprintf(stderr, "[-] %s: code %lu\n", prefix, error);
+		fprintf(stderr, "error: %s: code %lu\n", prefix, error);
 }
 
 
@@ -190,28 +190,6 @@ static int leek_crypto_init(struct leek_crypto *lc)
 
 out:
 	return ret;
-}
-
-
-static void leek_base32_enc(uint8_t *dst, const uint8_t *src)
-{
-	dst[ 0] = LEEK_BASE32_ALPHABET[ (src[0] >> 3)                       ];
-	dst[ 1] = LEEK_BASE32_ALPHABET[((src[0] << 2) | (src[1] >> 6))  & 31];
-	dst[ 2] = LEEK_BASE32_ALPHABET[ (src[1] >> 1)                   & 31];
-	dst[ 3] = LEEK_BASE32_ALPHABET[((src[1] << 4) | (src[2] >> 4))  & 31];
-	dst[ 4] = LEEK_BASE32_ALPHABET[((src[2] << 1) | (src[3] >> 7))  & 31];
-	dst[ 5] = LEEK_BASE32_ALPHABET[ (src[3] >> 2)                   & 31];
-	dst[ 6] = LEEK_BASE32_ALPHABET[((src[3] << 3) | (src[4] >> 5))  & 31];
-	dst[ 7] = LEEK_BASE32_ALPHABET[  src[4]                         & 31];
-
-	dst[ 8] = LEEK_BASE32_ALPHABET[ (src[5] >> 3)                       ];
-	dst[ 9] = LEEK_BASE32_ALPHABET[((src[5] << 2) | (src[6] >> 6))  & 31];
-	dst[10] = LEEK_BASE32_ALPHABET[ (src[6] >> 1)                   & 31];
-	dst[11] = LEEK_BASE32_ALPHABET[((src[6] << 4) | (src[7] >> 4))  & 31];
-	dst[12] = LEEK_BASE32_ALPHABET[((src[7] << 1) | (src[8] >> 7))  & 31];
-	dst[13] = LEEK_BASE32_ALPHABET[ (src[8] >> 2)                   & 31];
-	dst[14] = LEEK_BASE32_ALPHABET[((src[8] << 3) | (src[9] >> 5))  & 31];
-	dst[15] = LEEK_BASE32_ALPHABET[  src[9]                         & 31];
 }
 
 
@@ -372,22 +350,22 @@ static void leek_result_write(const uint8_t *onion, const uint8_t *prv_key,
 	int ret;
 	int fd;
 
-	result_path_sz = strlen(leek.config.result_dir) + LEEK_ADDRESS_LEN
+	result_path_sz = strlen(leek.options.result_dir) + LEEK_ADDRESS_LEN
 	                 + strlen(".onion.key") + 2;
 	result_path = alloca(result_path_sz);
 
 	snprintf(result_path, result_path_sz, "%s/%.16s.onion.key",
-	         leek.config.result_dir, onion);
+	         leek.options.result_dir, onion);
 
 	fd = open(result_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0) {
-		fprintf(stderr, "[-] open failed: %s\n", strerror(errno));
+		fprintf(stderr, "error: open failed: %s\n", strerror(errno));
 		return;
 	}
 
 	ret = write(fd, prv_key, prv_len);
 	if (ret < 0)
-		fprintf(stderr, "[-] write failed: %s\n", strerror(errno));
+		fprintf(stderr, "error: write failed: %s\n", strerror(errno));
 	close(fd);
 }
 
@@ -418,13 +396,13 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 
 	/* Avoid displaying one extra result */
 	found_hash_count = __sync_add_and_fetch(&leek.found_hash_count, 1);
-	if (!leek.config.stop_count || found_hash_count <= leek.config.stop_count) {
+	if (!leek.options.stop_count || found_hash_count <= leek.options.stop_count) {
 		flockfile(stdout);
 		printf("\n");
 		printf("[+] Found %.16s.onion (size=%u, popcnt(e)=%u, ID=%u)\n",
 		       onion_address, length, popcnt, found_hash_count);
 
-		if (leek.config.result_dir)
+		if (leek.options.result_dir)
 			leek_result_write(onion_address, prv_output, buffer->length);
 		else {
 			fwrite_unlocked(prv_output, buffer->length, 1, stdout);
@@ -438,8 +416,8 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 	BIO_free(bp);
 
 	/* We only perform exit if we are the thread issuing the last result */
-	if (leek.config.stop_count && found_hash_count == leek.config.stop_count) {
-		if (leek.config.flags & LEEK_OPTION_VERBOSE) {
+	if (leek.options.stop_count && found_hash_count == leek.options.stop_count) {
+		if (leek.options.flags & LEEK_OPTION_VERBOSE) {
 			if (popcnt & 1)
 				printf("[>] Mess with the best die like the rest!\n");
 			else
@@ -450,8 +428,8 @@ void leek_result_display(RSA *rsa, uint32_t e, int length,
 }
 
 
-int leek_address_check(struct leek_crypto *lc, unsigned int e,
-                       const union leek_rawaddr *addr)
+int leek_result_recheck(struct leek_crypto *lc, unsigned int e,
+                        const union leek_rawaddr *addr)
 {
 	uint32_t e_be = htobe32(e);
 	int ret = -1;

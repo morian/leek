@@ -10,7 +10,6 @@
 
 /**
  * TODO:
- * - Remove benchmark mode (default)
  * - Implement --no-results and --duration
  * - Refactor all included files and file names
  **/
@@ -22,7 +21,6 @@ static const struct option leek_long_options[] = {
 	{"output",     1, 0, 'o'},
 	{"length",     1, 0, 'l'},
 	{"duration",   1, 0, 'd'},
-	{"benchmark",  0, 0, 'b'},
 	{"threads",    1, 0, 't'},
 	{"impl",       1, 0, 'I'},
 	{"stop",       2, 0, 's'},
@@ -46,7 +44,6 @@ static void leek_usage_show(FILE *fp, const char *prog_name)
 	fprintf(fp, " -t, --threads=#    worker threads count (default is all cores).\n");
 	fprintf(fp, " -I, --impl=#       select implementation (see bellow).\n");
 	fprintf(fp, " -s, --stop(=1)     stop processing after # success (default is infinite).\n");
-	fprintf(fp, " -b, --benchmark    show average speed instead of current speed.\n");
 	fprintf(fp, " -v, --verbose      show verbose run information.\n");
 	fprintf(fp, " -h, --help         show this help and exit.\n");
 	fprintf(fp, "     --no-results   do not display live results on stdout.\n");
@@ -97,29 +94,29 @@ static int leek_options_check(void)
 {
 	int ret = 0;
 
-	if (leek.config.implementation)
-		ret = leek_implementation_select(leek.config.implementation);
+	if (leek.options.implementation)
+		ret = leek_implementation_select(leek.options.implementation);
 
-	if (!leek.config.threads || leek.config.threads > LEEK_THREADS_MAX) {
-		fprintf(stderr, "[-] error: thread count must be in range [1 - %u].\n", LEEK_THREADS_MAX);
+	if (!leek.options.threads || leek.options.threads > LEEK_THREADS_MAX) {
+		fprintf(stderr, "error: thread count must be in range [1 - %u].\n", LEEK_THREADS_MAX);
 		ret = -1;
 	}
 
-	if (   (leek.config.len_min < LEEK_LENGTH_MIN)
-	    || (leek.config.len_max > LEEK_LENGTH_MAX)
-	    || (leek.config.len_min > leek.config.len_max)) {
-		fprintf(stderr, "[-] error: provided length range is invalid [%u-%u].\n",
+	if (   (leek.options.len_min < LEEK_LENGTH_MIN)
+	    || (leek.options.len_max > LEEK_LENGTH_MAX)
+	    || (leek.options.len_min > leek.options.len_max)) {
+		fprintf(stderr, "error: provided length range is invalid [%u-%u].\n",
 		        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
 		ret = -1;
 	}
 
-	if ((leek.config.flags & LEEK_OPTION_STOP) && !leek.config.stop_count) {
-		fprintf(stderr, "[-] error: stop argument cannot be 0.\n");
+	if ((leek.options.flags & LEEK_OPTION_STOP) && !leek.options.stop_count) {
+		fprintf(stderr, "error: stop argument cannot be 0.\n");
 		ret = -1;
 	}
 
-	if (!leek.config.input_path && !leek.config.prefix) {
-		fprintf(stderr, "[-] error: no prefix file or single prefix provided.\n");
+	if (!leek.options.prefix_file && !leek.options.prefix_single) {
+		fprintf(stderr, "error: no prefix file or single prefix provided.\n");
 		ret = -1;
 	}
 
@@ -132,18 +129,20 @@ int leek_options_parse(int argc, char *argv[])
 	int ret = -1;
 
 	/* Automatically configured while loading prefixes */
-	leek.config.len_min = LEEK_LENGTH_MIN;
-	leek.config.len_max = LEEK_LENGTH_MAX;
+	leek.options.len_min = LEEK_LENGTH_MIN;
+	leek.options.len_max = LEEK_LENGTH_MAX;
+
+	/* TODO: remove me when refactoring statistics */
+	leek.options.flags = LEEK_OPTION_BENCHMARK;
 
 	/* These are default values */
-	leek.config.threads = get_nprocs();
-	leek.config.mode = LEEK_MODE_MULTI;
+	leek.options.threads = get_nprocs();
 
 	while (1) {
 		unsigned long val;
 		int c;
 
-		c = getopt_long(argc, argv, "l:p:i:o:I:bt:s::vh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:p:i:o:I:t:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -151,58 +150,53 @@ int leek_options_parse(int argc, char *argv[])
 			case 't':
 				val = strtoul(optarg, NULL, 10);
 				if (errno == ERANGE || val > UINT_MAX) {
-					fprintf(stderr, "[-] error: unable to read threads count argument.\n");
+					fprintf(stderr, "error: unable to read threads count argument.\n");
 					goto out;
 				}
-				leek.config.threads = val;
+				leek.options.threads = val;
 				break;
 
 			case 'l':
-				ret = leek_range_parse(optarg, &leek.config.len_min, &leek.config.len_max);
+				ret = leek_range_parse(optarg, &leek.options.len_min, &leek.options.len_max);
 				if (ret < 0) {
-					fprintf(stderr, "[-] error: unable to read length argument.\n");
+					fprintf(stderr, "error: unable to read length argument.\n");
 					goto out;
 				}
 				break;
 
 			case 'o':
-				leek.config.result_dir = optarg;
+				leek.options.result_dir = optarg;
 				break;
 
 			case 'i':
-				leek.config.mode = LEEK_MODE_MULTI;
-				leek.config.input_path = optarg;
+				leek.options.prefix_file = optarg;
 				break;
 
 			case 'p':
-				leek.config.mode = LEEK_MODE_SINGLE;
-				leek.config.prefix = optarg;
+				leek.options.flags |= LEEK_OPTION_SINGLE;
+				leek.options.prefix_single = optarg;
 				break;
 
 			case 'I':
-				leek.config.implementation = optarg;
+				leek.options.implementation = optarg;
 				break;
 
 			case 's':
-				leek.config.flags |= LEEK_OPTION_STOP;
+				leek.options.flags |= LEEK_OPTION_STOP;
 				if (!optarg)
-					leek.config.stop_count = 1;
+					leek.options.stop_count = 1;
 				else {
 					val = strtoul(optarg, NULL, 10);
 					if (errno == ERANGE || val > UINT_MAX) {
-						fprintf(stderr, "[-] error: unable to read stop argument.\n");
+						fprintf(stderr, "error: unable to read stop argument.\n");
 						goto out;
 					}
-					leek.config.stop_count = val;
+					leek.options.stop_count = val;
 				}
 				break;
 
-			case 'b':
-				leek.config.flags |= LEEK_OPTION_BENCHMARK;
-				break;
-
 			case 'v':
-				leek.config.flags |= LEEK_OPTION_VERBOSE;
+				leek.options.flags |= LEEK_OPTION_VERBOSE;
 				break;
 
 			case 'h':
@@ -219,5 +213,3 @@ int leek_options_parse(int argc, char *argv[])
 out:
 	return ret;
 }
-
-

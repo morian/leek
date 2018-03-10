@@ -3,8 +3,8 @@
 
 	/* Structure holding configuration from argument parsing */
 struct leek_options {
-	const char *input_path;     /* Input prefix file */
-	const char *prefix;         /* Single prefix mode */
+	const char *prefix_file;    /* Input prefix file */
+	const char *prefix_single;  /* Single prefix mode */
 	const char *result_dir;     /* Output directory */
 	const char *implementation; /* Choosen implementation */
 
@@ -13,7 +13,6 @@ struct leek_options {
 	unsigned int len_min;       /* Minimum prefix size */
 	unsigned int len_max;       /* Maximum prefix size */
 	unsigned int flags;         /* See enum bellow */
-	unsigned int mode;          /* See other enum bellow */
 };
 
 
@@ -22,12 +21,7 @@ enum {
 	LEEK_OPTION_VERBOSE   = (1 << 0),  /* Run in verbose mode */
 	LEEK_OPTION_STOP      = (1 << 1),  /* Stop after a single success */
 	LEEK_OPTION_BENCHMARK = (1 << 2),  /* Show overall hashrate instead of local */
-};
-
-/* Leek working modes */
-enum {
-	LEEK_MODE_MULTI     =  0,  /* Multiple prefixes lookup */
-	LEEK_MODE_SINGLE    =  1,  /* Single prefix lookup */
+	LEEK_OPTION_SINGLE    = (1 << 3),  /* Whether we are running in single prefix mode */
 };
 
 /* Parse options and fill the options structure */

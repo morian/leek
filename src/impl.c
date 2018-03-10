@@ -50,7 +50,7 @@ int leek_implementation_select(const char *name)
 		leek.implementation = selected;
 	}
 	else
-		fprintf(stderr, "[-] Unable to find matching implementation.\n");
+		fprintf(stderr, "error: unable to find matching implementation.\n");
 
 	return (selected) ? 0 : -1;
 }

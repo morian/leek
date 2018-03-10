@@ -20,15 +20,12 @@ struct leek_context leek;
 
 static void leek_exit(void)
 {
-	if (leek.prefixes) {
-		leek_prefixes_free(leek.prefixes);
-		leek.prefixes = NULL;
-	}
 	if (leek.worker) {
 		free(leek.worker);
 		leek.worker = NULL;
 	}
 
+	leek_hashes_clean();
 	leek_openssl_exit();
 }
 
@@ -80,17 +77,17 @@ static int leek_workers_init(void)
 
 	ERR_load_crypto_strings();
 
-	worker = calloc(leek.config.threads, sizeof *worker);
+	worker = calloc(leek.options.threads, sizeof *worker);
 	if (!worker)
 		goto out;
 	leek.worker = worker;
 
-	for (unsigned int i = 0; i < leek.config.threads; ++i) {
+	for (unsigned int i = 0; i < leek.options.threads; ++i) {
 		worker[i].id = i;
 
 		ret = pthread_create(&worker[i].thread, NULL, leek_worker, &worker[i]);
 		if (ret < 0) {
-			fprintf(stderr, "[-] pthread_create: %s\n", strerror(errno));
+			fprintf(stderr, "error: pthread_create: %s\n", strerror(errno));
 			goto out;
 		}
 	}
@@ -110,90 +107,18 @@ static int leek_worker_join(void)
 	void *retval;
 	int ret = 0;
 
-	for (unsigned int i = 0; i < leek.config.threads; ++i) {
+	for (unsigned int i = 0; i < leek.options.threads; ++i) {
 		ret = pthread_join(leek.worker[i].thread, &retval);
 		if (ret < 0) {
-			fprintf(stderr, "[-] pthread_join: %s\n", strerror(errno));
+			fprintf(stderr, "error: pthread_join: %s\n", strerror(errno));
 			has_error = 1;
 		}
 		if (retval) {
-			fprintf(stderr, "[-] worker %u terminated unsuccessfully.\n", i);
+			fprintf(stderr, "error: worker %u terminated unsuccessfully.\n", i);
 			has_error = 1;
 		}
 	}
 	return (has_error) ? -1 : 0;
-}
-
-
-static int leek_init_prefix(void)
-{
-	unsigned int length = strlen(leek.config.prefix);
-	int ret = -1;
-
-	if (length < leek.config.len_min || length > leek.config.len_max) {
-		fprintf(stderr, "[-] error: input prefix is out of range.\n");
-		goto out;
-	}
-
-	ret = leek_prefix_parse(&leek.address, leek.config.prefix, length);
-	if (ret < 0) {
-		fprintf(stderr, "[-] error: unable to parse provided input prefix.\n");
-		goto out;
-	}
-
-	leek.config.len_min = length;
-	leek.config.len_max = leek.config.len_min;
-	leek.prob_find_1 = 1.0 / powl(2, LEEK_RAWADDR_CHAR_BITS * length);
-
-	if (leek.config.flags & LEEK_OPTION_VERBOSE)
-		printf("[+] Loaded a single target address with size %u\n", length);
-
-out:
-	return ret;
-}
-
-
-static int leek_init_prefixes(void)
-{
-	struct leek_prefixes *lp;
-	int ret = -1;
-
-	lp = leek_readfile(leek.config.input_path, leek.config.len_min, leek.config.len_max);
-	if (!lp)
-		goto out;
-
-	if (!lp->word_count) {
-		fprintf(stderr, "[-] error: no matching prefix in %s.\n", leek.config.input_path);
-		goto lp_free;
-	}
-
-	/* Update min and max length based on the loaded dictionary */
-	leek.config.len_min = lp->length_min;
-	leek.config.len_max = lp->length_max;
-	leek.prob_find_1 = lp->prob_find_1;
-	leek.prefixes = lp;
-
-	if (leek.config.flags & LEEK_OPTION_VERBOSE) {
-		if (lp->length_min == lp->length_max)
-			printf("[+] Loaded %u valid prefixes with size %u.\n",
-			       lp->word_count, lp->length_min);
-		else
-			printf("[+] Loaded %u valid prefixes in range %u:%u.\n",
-			       lp->word_count, lp->length_min, lp->length_max);
-
-		if (lp->invalid_count || lp->duplicate_count || lp->filtered_count)
-			printf("[!] Rejected %u invalid, %u filtered and %u duplicate prefixes.\n",
-			       lp->invalid_count, lp->filtered_count, lp->duplicate_count);
-	}
-
-	ret = 0;
-out:
-	return ret;
-
-lp_free:
-	free(lp);
-	ret = -1;
-	goto out;
 }
 
 
@@ -214,7 +139,7 @@ static int leek_init(void)
 
 
 	/* Create output directory if needed */
-	if (leek.config.result_dir) {
+	if (leek.options.result_dir) {
 		ret = leek_result_dir_init();
 		if (ret < 0)
 			goto out;
@@ -225,37 +150,28 @@ static int leek_init(void)
 	if (ret < 0)
 		goto out;
 
-	switch (leek.config.mode) {
-		/* Initialize prefix list from file (lookup in multi-hash mode) */
-		case LEEK_MODE_MULTI:
-			ret = leek_init_prefixes();
-			break;
-
-		/* Initialize a single prefix attack from user-provided parameter */
-		case LEEK_MODE_SINGLE:
-			ret = leek_init_prefix();
-			break;
-
-		default:
-			ret = -1;
-			break;
-	}
-
+	/* Load all input hashes and perform first stage statistics */
+	ret = leek_hashes_load();
 	if (ret < 0)
-		goto out;
+		goto openssl_exit;
 
-	if (leek.config.flags & LEEK_OPTION_VERBOSE) {
-		printf("[+] Using %s implementation on %u worker threads.\n",
-		       leek.implementation->name, leek.config.threads);
-	}
+	ret = leek_hashes_stats();
+	if (ret < 0)
+		goto hashes_exit;
 
 	ret = leek_workers_init();
 	if (ret < 0)
-		goto out;
+		goto hashes_exit;
 
 	ret = 0;
 out:
 	return ret;
+
+hashes_exit:
+	leek_hashes_clean();
+openssl_exit:
+	leek_openssl_exit();
+	goto out;
 }
 
 
@@ -264,7 +180,7 @@ static uint64_t leek_hashcount_update(void)
 	uint64_t hash_count = 0;
 	uint64_t hash_diff = 0;
 
-	for (unsigned int i = 0; i < leek.config.threads; ++i)
+	for (unsigned int i = 0; i < leek.options.threads; ++i)
 		hash_count += leek.worker[i].hash_count;
 
 	hash_diff = hash_count - leek.last_hash_count;
@@ -309,7 +225,7 @@ static void leek_metric_timer_display(const char *prefix, uint64_t msecs)
 static uint64_t leek_metric_estimate_get(uint64_t hash_count, uint64_t elapsed)
 {
 	long double tgt_time;
-	tgt_time = (((long double) elapsed) / (leek.prob_find_1 * hash_count));
+	tgt_time = (((long double) elapsed) / (leek.stats.proba_one * hash_count));
 	return tgt_time;
 }
 
@@ -329,7 +245,7 @@ static void leek_metric_display(void)
 	long double prob_found;
 
 	/* On benchmark configuration we show the overall hash/rate */
-	if (leek.config.flags & LEEK_OPTION_BENCHMARK)
+	if (leek.options.flags & LEEK_OPTION_BENCHMARK)
 		hash_rate_raw = (1000.0 * leek.last_hash_count) / elapsed;
 	else
 		hash_rate_raw = (1000000.0 * hash_diff) / time_diff;
@@ -355,7 +271,7 @@ static void leek_metric_display(void)
 	leek_metric_timer_display("   Elapsed:", elapsed);
 
 	if (leek.last_hash_count && !leek.found_hash_count) {
-		prob_found = 100.0 * (1.0 -  powl(1.0 - leek.prob_find_1, leek.last_hash_count));
+		prob_found = 100.0 * (1.0 -  powl(1.0 - leek.stats.proba_one, leek.last_hash_count));
 
 		/* Probability to already have a result. */
 		printf(" (%6.2Lf%%)", prob_found);
@@ -375,7 +291,7 @@ int main(int argc, char *argv[])
 {
 	int ret = -1;
 
-	/* Link known implementations to global leek structure */
+	/* Chose by default the best available implementation at run-time */
 	leek_implementations_init();
 
 	ret = leek_options_parse(argc, argv);
@@ -384,18 +300,16 @@ int main(int argc, char *argv[])
 
 	ret = leek_init();
 	if (ret < 0)
-		goto exit;
+		goto out;
 
+	/* TODO: move eveything here in a terminal loop */
 	while (1) {
 		usleep(LEEK_MONITOR_INTERVAL * 1000);
 		leek_metric_display();
 	}
-
 	ret = leek_worker_join();
-	if (ret < 0)
-		goto exit;
 
-exit:
+
 	leek_exit();
 out:
 	return (ret < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
