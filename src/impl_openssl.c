@@ -65,9 +65,9 @@ static int __hot leek_openssl_exhaust(struct leek_worker *wk, struct leek_crypto
 		if (unlikely(length)) {
 			ret = leek_result_recheck(lc, e, sha1_addr);
 			if (ret < 0)
-				__sync_add_and_fetch(&leek.error_hash_count, 1);
+				__sync_add_and_fetch(&leek.stats.recheck_failures, 1);
 			else
-				leek_result_display(lc->rsa, e, length, sha1_addr);
+				leek_result_handle(lc->rsa, e, length, sha1_addr);
 		}
 		wk->hash_count++;
 	}

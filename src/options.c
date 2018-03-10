@@ -8,12 +8,6 @@
 
 #include "leek.h"
 
-/**
- * TODO:
- * - Implement --no-results and --duration
- * - Refactor all included files and file names
- **/
-
 
 static const struct option leek_long_options[] = {
 	{"input",      1, 0, 'i'},
@@ -39,7 +33,7 @@ static void leek_usage_show(FILE *fp, const char *prog_name)
 	fprintf(fp, " -i, --input        input dictionary with prefixes.\n");
 	fprintf(fp, " -o, --output       output directory (default prints on stdout).\n");
 	fprintf(fp, " -l, --length=N:M   length filter for dictionary attack [%u-%u].\n",
-	        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
+	        LEEK_PREFIX_LENGTH_MIN, LEEK_PREFIX_LENGTH_MAX);
 	fprintf(fp, " -d, --duration     how long to run (in seconds, default is infinite).\n");
 	fprintf(fp, " -t, --threads=#    worker threads count (default is all cores).\n");
 	fprintf(fp, " -I, --impl=#       select implementation (see bellow).\n");
@@ -90,6 +84,53 @@ out:
 }
 
 
+static unsigned long leek_options_scan_duration(const char *arg)
+{
+	unsigned long value;
+	char *end;
+
+	value = strtoul(arg, &end, 10);
+	if (value == ULONG_MAX && errno) {
+		value = 0;
+		goto done;
+	}
+
+	switch (*end) {
+		/* Weeks */
+		case 'W':
+		case 'w':
+			value *= 7;
+
+		/* Days */
+		case 'D':
+		case 'd':
+			value *= 24;
+
+		/* Hours */
+		case 'H':
+		case 'h':
+			value *= 60;
+
+		/* Minutes */
+		case 'M':
+		case 'm':
+			value *= 60;
+
+		case '\0':
+		case 'S':
+		case 's':
+			break;
+
+		default:
+			/* Unrecognized unit = abort */
+			value = 0;
+	};
+
+done:
+	return value;
+}
+
+
 static int leek_options_check(void)
 {
 	int ret = 0;
@@ -102,11 +143,11 @@ static int leek_options_check(void)
 		ret = -1;
 	}
 
-	if (   (leek.options.len_min < LEEK_LENGTH_MIN)
-	    || (leek.options.len_max > LEEK_LENGTH_MAX)
+	if (   (leek.options.len_min < LEEK_PREFIX_LENGTH_MIN)
+	    || (leek.options.len_max > LEEK_PREFIX_LENGTH_MAX)
 	    || (leek.options.len_min > leek.options.len_max)) {
 		fprintf(stderr, "error: provided length range is invalid [%u-%u].\n",
-		        LEEK_LENGTH_MIN, LEEK_LENGTH_MAX);
+		        LEEK_PREFIX_LENGTH_MIN, LEEK_PREFIX_LENGTH_MAX);
 		ret = -1;
 	}
 
@@ -129,31 +170,29 @@ int leek_options_parse(int argc, char *argv[])
 	int ret = -1;
 
 	/* Automatically configured while loading prefixes */
-	leek.options.len_min = LEEK_LENGTH_MIN;
-	leek.options.len_max = LEEK_LENGTH_MAX;
-
-	/* TODO: remove me when refactoring statistics */
-	leek.options.flags = LEEK_OPTION_BENCHMARK;
+	leek.options.len_min = LEEK_PREFIX_LENGTH_MIN;
+	leek.options.len_max = LEEK_PREFIX_LENGTH_MAX;
+	leek.options.flags |= LEEK_OPTION_SHOW_RESULTS;
 
 	/* These are default values */
 	leek.options.threads = get_nprocs();
 
 	while (1) {
-		unsigned long val;
+		unsigned long uval;
 		int c;
 
-		c = getopt_long(argc, argv, "l:p:i:o:I:t:s::vh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:d:p:i:o:I:t:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 
 		switch (c) {
 			case 't':
-				val = strtoul(optarg, NULL, 10);
-				if (errno == ERANGE || val > UINT_MAX) {
+				uval = strtoul(optarg, NULL, 10);
+				if (errno == ERANGE || uval > UINT_MAX) {
 					fprintf(stderr, "error: unable to read threads count argument.\n");
 					goto out;
 				}
-				leek.options.threads = val;
+				leek.options.threads = uval;
 				break;
 
 			case 'l':
@@ -162,6 +201,15 @@ int leek_options_parse(int argc, char *argv[])
 					fprintf(stderr, "error: unable to read length argument.\n");
 					goto out;
 				}
+				break;
+
+			case 'd':
+				uval = leek_options_scan_duration(optarg);
+				if (!uval) {
+					fprintf(stderr, "error: invalid duration specificed (accepted suffixes are s,m,h,d,w).\n");
+					goto out;
+				}
+				leek.options.duration = uval;
 				break;
 
 			case 'o':
@@ -186,12 +234,12 @@ int leek_options_parse(int argc, char *argv[])
 				if (!optarg)
 					leek.options.stop_count = 1;
 				else {
-					val = strtoul(optarg, NULL, 10);
-					if (errno == ERANGE || val > UINT_MAX) {
+					uval = strtoul(optarg, NULL, 10);
+					if (errno == ERANGE || uval > UINT_MAX) {
 						fprintf(stderr, "error: unable to read stop argument.\n");
 						goto out;
 					}
-					leek.options.stop_count = val;
+					leek.options.stop_count = uval;
 				}
 				break;
 
@@ -202,6 +250,10 @@ int leek_options_parse(int argc, char *argv[])
 			case 'h':
 				leek_usage_show(stdout, argv[0]);
 				exit(EXIT_SUCCESS);
+
+			case 0x1:
+				leek.options.flags &= ~LEEK_OPTION_SHOW_RESULTS;
+				break;
 
 			default:
 				leek_usage_show(stderr, argv[0]);

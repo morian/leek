@@ -21,3 +21,16 @@ void leek_stats_proba_update(void)
 {
 	leek.stats.proba_one = leek_stats_proba_one();
 }
+
+
+/* Generic way to get current timestamp in micro-seconds (for measurements) */
+uint64_t leek_timestamp(void)
+{
+	struct timespec timespec;
+	uint64_t timestamp;
+
+	clock_gettime(CLOCK_MONOTONIC, &timespec);
+	timestamp = (timespec.tv_sec * 1000000ULL) + (timespec.tv_nsec / 1000ULL);
+
+	return timestamp;
+}

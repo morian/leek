@@ -496,9 +496,9 @@ static int leek_vecx_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 					uint32_t e = 2 * (VECX_LANE_COUNT * (o * inner_count + i) + r) + 1;
 					ret = leek_result_recheck(lc, e, result);
 					if (ret < 0)
-						__sync_add_and_fetch(&leek.error_hash_count, 1);
+						__sync_add_and_fetch(&leek.stats.recheck_failures, 1);
 					else
-						leek_result_display(lc->rsa, e, length, result);
+						leek_result_handle(lc->rsa, e, length, result);
 				}
 			}
 
