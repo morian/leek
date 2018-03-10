@@ -6,6 +6,8 @@
 # include <openssl/opensslv.h>
 # include <openssl/rsa.h>
 
+# include "worker.h"
+
 # ifndef OPENSSL_VERSION_1_1
 #  define OPENSSL_VERSION_1_1    0x10100000L
 # endif
@@ -37,7 +39,7 @@ enum {
 
 
 /* Recheck a promising candidate */
-int leek_result_recheck(struct leek_crypto *item, uint32_t exponent,
+int leek_result_recheck(struct leek_rsa_item *item, uint32_t exponent,
                         const union leek_rawaddr *addr);
 
 /* Handle a valid result (writing to file, displaying, etc...) */

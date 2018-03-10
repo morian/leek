@@ -13,66 +13,12 @@
 struct leek_context leek;
 
 
-static int leek_worker_join(void)
-{
-	int has_error = 0;
-	void *retval;
-	int ret = 0;
-
-	for (unsigned int i = 0; i < leek.options.threads; ++i) {
-		ret = pthread_join(leek.worker[i].thread, &retval);
-		if (ret < 0) {
-			fprintf(stderr, "error: pthread_join: %s\n", strerror(errno));
-			has_error = 1;
-		}
-		if (retval) {
-			fprintf(stderr, "error: worker %u terminated unsuccessfully.\n", i);
-			has_error = 1;
-		}
-	}
-	return (has_error) ? -1 : 0;
-}
-
-
 static void leek_exit(void)
 {
-	if (leek.worker) {
-		leek_worker_join();
-		free(leek.worker);
-		leek.worker = NULL;
-	}
-
+	leek_workers_stop();
 	leek_events_exit();
 	leek_hashes_clean();
 	leek_openssl_exit();
-}
-
-
-static int leek_workers_init(void)
-{
-	struct leek_worker *worker;
-	int ret = 0;
-
-	ERR_load_crypto_strings();
-
-	worker = calloc(leek.options.threads, sizeof *worker);
-	if (!worker)
-		goto out;
-	leek.worker = worker;
-
-	for (unsigned int i = 0; i < leek.options.threads; ++i) {
-		worker[i].id = i;
-
-		ret = pthread_create(&worker[i].thread, NULL, leek_worker, &worker[i]);
-		if (ret < 0) {
-			fprintf(stderr, "error: pthread_create: %s\n", strerror(errno));
-			goto out;
-		}
-	}
-
-	ret = 0;
-out:
-	return ret;
 }
 
 
@@ -141,7 +87,7 @@ static int leek_start(void)
 	leek.stats.ts_start = leek_timestamp();
 	leek.stats.flags |= LEEK_STATS_FLAG_RUNNING;
 
-	ret = leek_workers_init();
+	ret = leek_workers_start();
 	if (ret < 0)
 		goto events_exit;
 

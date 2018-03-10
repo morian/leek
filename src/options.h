@@ -4,6 +4,7 @@
 
 # define LEEK_PREFIX_LENGTH_MIN                 4
 # define LEEK_PREFIX_LENGTH_MAX  LEEK_ADDRESS_LEN
+# define LEEK_THREADS_MAX                     512
 
 
 	/* Structure holding configuration from argument parsing */

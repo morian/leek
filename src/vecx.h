@@ -1,12 +1,13 @@
 #ifndef __LEEK_VECX_H
 # define __LEEK_VECX_H
-#include <stdint.h>
-#include <string.h>
+# include <stdint.h>
+# include <string.h>
 
 /* TO BE INCLUDED AFTER ANY SPECIFIC IMPLEMENTATION */
 /* THIS IS THE GENERIC IMPLEMENTATION HERE */
 
-#include "lookup.h"
+# include "lookup.h"
+# include "worker.h"
 
 static int leek_vecx_available(void)
 {
@@ -398,9 +399,9 @@ static void leek_vecx_block_update(struct leek_vecx *lv, const void *ptr)
 
 
 /* Stage0: pre-compute first full SHA1 blocks */
-static int leek_vecx_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
+static int leek_vecx_precalc(struct leek_rsa_item *item, const void *ptr, size_t len)
 {
-	struct leek_vecx *lv = lc->private_data;
+	struct leek_vecx *lv = item->private_data;
 	size_t rem = len;
 	int ret = -1;
 
@@ -434,9 +435,9 @@ out:
 	return ret;
 }
 
-static int leek_vecx_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+static int leek_vecx_exhaust(struct leek_rsa_item *item, struct leek_worker *wk)
 {
-	struct leek_vecx *lv = lc->private_data;
+	struct leek_vecx *lv = item->private_data;
 	uint32_t increment = 1 << ((8 * lv->expo_pos) + VECX_INCR_ORDER);
 	unsigned int iter_count = (LEEK_RSA_E_LIMIT - LEEK_RSA_E_START + 2) >> 4;
 	unsigned int outer_count;
@@ -494,16 +495,16 @@ static int leek_vecx_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
 				if (unlikely(length)) {
 					/* What's my e again? */
 					uint32_t e = 2 * (VECX_LANE_COUNT * (o * inner_count + i) + r) + 1;
-					ret = leek_result_recheck(lc, e, result);
+					ret = leek_result_recheck(item, e, result);
 					if (ret < 0)
 						__sync_add_and_fetch(&leek.stats.recheck_failures, 1);
 					else
-						leek_result_handle(lc->rsa, e, length, result);
+						leek_result_handle(item->rsa, e, length, result);
 				}
 			}
 
 			vexpo[0] = vecx_add(vexpo[0], vincr[0]);
-			wk->hash_count += VECX_LANE_COUNT;
+			wk->stats.hash_count += VECX_LANE_COUNT;
 		}
 
 		vexpo[1] = vecx_add(vexpo[1], vincr[1]);

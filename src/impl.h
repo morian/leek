@@ -1,8 +1,9 @@
 #ifndef __LEEK_IMPL_H
 # define __LEEK_IMPL_H
+# include <stdio.h>
 
 /* Forward declarations */
-struct leek_crypto;
+struct leek_rsa_item;
 struct leek_worker;
 
 
@@ -21,10 +22,10 @@ struct leek_implementation {
 	void *(*allocate) (void);
 
 	/* Perform SHA1 precalculus after a new RSA key pair had been generated */
-	int (*precalc) (struct leek_crypto *lc, const void *ptr, size_t len);
+	int (*precalc) (struct leek_rsa_item *item, const void *ptr, size_t len);
 
 	/* Perform SHA1 full exhaust for the current RSA key pair */
-	int (*exhaust) (struct leek_worker *wk, struct leek_crypto *lc);
+	int (*exhaust) (struct leek_rsa_item *item, struct leek_worker *wk);
 };
 
 

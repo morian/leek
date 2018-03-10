@@ -410,7 +410,7 @@ void leek_result_handle(RSA *rsa, uint32_t exponent, int length,
 }
 
 
-int leek_result_recheck(struct leek_crypto *item, unsigned int exponent,
+int leek_result_recheck(struct leek_rsa_item *item, unsigned int exponent,
                         const union leek_rawaddr *addr)
 {
 	uint32_t e_be = htobe32(exponent);

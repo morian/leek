@@ -17,14 +17,14 @@ static void *leek_impl_allocate(void)
 	return leek.implementation->allocate();
 }
 
-static int leek_impl_precalc(struct leek_crypto *lc, const uint8_t *der, size_t len)
+static int leek_impl_precalc(struct leek_rsa_item *item, const uint8_t *der, size_t len)
 {
-	return leek.implementation->precalc(lc, der, len);
+	return leek.implementation->precalc(item, der, len);
 }
 
-static int leek_impl_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+static int leek_impl_exhaust(struct leek_rsa_item *item, struct leek_worker *wk)
 {
-	return leek.implementation->exhaust(wk, lc);
+	return leek.implementation->exhaust(item, wk);
 }
 
 
@@ -103,7 +103,7 @@ static void leek_crypto_der_show(const uint8_t *der, unsigned int len, FILE *fp)
 #endif
 
 
-static int leek_crypto_rsa_rekey(struct leek_crypto *lc)
+static int leek_crypto_rsa_rekey(struct leek_rsa_item *lc)
 {
 	unsigned int derlen;
 	uint8_t *der = NULL;
@@ -155,7 +155,7 @@ error:
 }
 
 
-static void leek_crypto_exit(struct leek_crypto *lc)
+static void leek_crypto_exit(struct leek_rsa_item *lc)
 {
 	if (lc->rsa)
 		RSA_free(lc->rsa);
@@ -166,7 +166,7 @@ static void leek_crypto_exit(struct leek_crypto *lc)
 }
 
 
-static int leek_crypto_init(struct leek_crypto *lc)
+static int leek_crypto_init(struct leek_rsa_item *lc)
 {
 	int ret = -1;
 	BIGNUM *big_e;
@@ -193,29 +193,102 @@ out:
 }
 
 
-void *leek_worker(void *arg)
+static void *leek_worker(void *arg)
 {
+	struct leek_rsa_item *item = alloca(sizeof(*item));
 	struct leek_worker *wk = arg;
-	struct leek_crypto *lc = alloca(sizeof(*lc));
+	void *retp = PTHREAD_CANCELED;
 	long ret;
 
-	ret = leek_crypto_init(lc);
+	wk->stats.ts_start = leek_timestamp();
+
+	ret = leek_crypto_init(item);
 	if (ret < 0)
 		goto out;
 
 	while (1) {
-		ret = leek_crypto_rsa_rekey(lc);
+		/* TODO:
+		 * - build a convention for clean exit (ret = 0?)
+		 * - record the exit timestamp for stats
+		 * - set flags for exit status
+		 **/
+		ret = leek_crypto_rsa_rekey(item);
 		if (ret < 0)
-			goto wk_exit;
+			goto out;
 
-		ret = leek_impl_exhaust(wk, lc);
+		ret = leek_impl_exhaust(item, wk);
 		if (ret < 0)
-			goto wk_exit;
+			goto out;
 	}
-	ret = 0;
+	retp = NULL;
 
-wk_exit:
-	leek_crypto_exit(lc);
 out:
-	return (void *) ret;
+	wk->stats.ts_stop = leek_timestamp();
+	leek_crypto_exit(item);
+	return retp;
+}
+
+
+int leek_workers_start(void)
+{
+	struct leek_worker *workers;
+	int ret = 0;
+
+	ERR_load_crypto_strings();
+
+	workers = calloc(leek.options.threads, sizeof *workers);
+	if (!workers)
+		goto out;
+	leek.workers.worker = workers;
+	leek.workers.count = leek.options.threads;
+
+	for (unsigned int i = 0; i < leek.workers.count; ++i) {
+		ret = pthread_create(&workers[i].thread, NULL, leek_worker, &workers[i]);
+		if (ret < 0) {
+			fprintf(stderr, "error: pthread_create: %s\n", strerror(errno));
+			goto out;
+		}
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+
+static int leek_workers_join(void)
+{
+	int has_error = 0;
+	void *retval;
+	int ret = 0;
+
+	for (unsigned int i = 0; i < leek.workers.count; ++i) {
+		ret = pthread_join(leek.workers.worker[i].thread, &retval);
+		if (ret < 0) {
+			fprintf(stderr, "error: pthread_join: %s\n", strerror(errno));
+			has_error = 1;
+		}
+		if (retval) {
+			fprintf(stderr, "error: worker %u terminated unsuccessfully.\n", i);
+			has_error = 1;
+		}
+	}
+
+	return (has_error) ? -1 : 0;
+}
+
+
+int leek_workers_stop(void)
+{
+	int ret = 0;
+
+	/* TODO: ensure that thread are being notified of the exit before hand */
+
+	ret = leek_workers_join();
+	if (ret < 0)
+		goto out;
+
+	free(leek.workers.worker);
+out:
+	return ret;
 }

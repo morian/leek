@@ -25,9 +25,9 @@ out:
 	return lco;
 }
 
-static int leek_openssl_precalc(struct leek_crypto *lc, const void *ptr, size_t len)
+static int leek_openssl_precalc(struct leek_rsa_item *item, const void *ptr, size_t len)
 {
-	struct leek_crypto_openssl *lco = lc->private_data;
+	struct leek_crypto_openssl *lco = item->private_data;
 
 	SHA1_Init(&lco->hash);
 	SHA1_Update(&lco->hash, ptr, len - LEEK_RSA_E_SIZE);
@@ -35,9 +35,9 @@ static int leek_openssl_precalc(struct leek_crypto *lc, const void *ptr, size_t 
 	return 0;
 }
 
-static int __hot leek_openssl_exhaust(struct leek_worker *wk, struct leek_crypto *lc)
+static int __hot leek_openssl_exhaust(struct leek_rsa_item *item, struct leek_worker *wk)
 {
-	struct leek_crypto_openssl *lco = lc->private_data;
+	struct leek_crypto_openssl *lco = item->private_data;
 	uint8_t sha1_buffer[SHA_DIGEST_LENGTH];
 	const union leek_rawaddr *sha1_addr;
 	uint32_t e = LEEK_RSA_E_START - 2;
@@ -63,13 +63,13 @@ static int __hot leek_openssl_exhaust(struct leek_worker *wk, struct leek_crypto
 
 		length = leek_result_lookup(sha1_addr);
 		if (unlikely(length)) {
-			ret = leek_result_recheck(lc, e, sha1_addr);
+			ret = leek_result_recheck(item, e, sha1_addr);
 			if (ret < 0)
 				__sync_add_and_fetch(&leek.stats.recheck_failures, 1);
 			else
-				leek_result_handle(lc->rsa, e, length, sha1_addr);
+				leek_result_handle(item->rsa, e, length, sha1_addr);
 		}
-		wk->hash_count++;
+		wk->stats.hash_count++;
 	}
 
 	return 0;
