@@ -9,7 +9,7 @@
 # include "terminal.h"
 # include "worker.h"
 
-# define LEEK_CPU_VERSION          "v1.9.9"
+# define LEEK_CPU_VERSION          "v2.0.0"
 
 /* leek application context */
 struct leek_context {
