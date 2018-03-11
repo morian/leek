@@ -13,7 +13,7 @@
 /* How many pools of prime numbers we have */
 # define LEEK_PRIMES_POOL_ORDER                                         4
 
-/* Dirty way to create a bitmask (but is be fine anyway) */
+/* Dirty way to create a bitmask (but is fine for our use) */
 # if   LEEK_PRIMES_POOL_ORDER == 3
 	typedef uint8_t prime_mask_t;
 # elif LEEK_PRIMES_POOL_ORDER == 4
@@ -35,7 +35,6 @@
 # define LEEK_PRIME_LIFETIME                     LEEK_PRIMES_POOL_COUNT
 # define LEEK_PRIME_NEXT_POOL(_pool_id)          \
 	(((_pool_id) + (1 << (LEEK_PRIMES_POOL_ORDER - 1))) & LEEK_PRIMES_POOL_MASK)
-
 
 
 struct leek_prime {

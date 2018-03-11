@@ -134,6 +134,7 @@ static int leek_terminal_handle_stdin(void)
 
 static int leek_terminal_handle_event(void)
 {
+	bool verbose = !!(leek.options.flags & LEEK_OPTION_VERBOSE);
 	unsigned int events;
 	eventfd_t counter;
 	int ret;
@@ -150,7 +151,14 @@ static int leek_terminal_handle_event(void)
 
 	if (events & LEEK_EVENT_NEW_RESULT) {
 		if (leek.options.flags & LEEK_OPTION_SHOW_RESULTS)
-			leek_result_new_display(!!(leek.options.flags & LEEK_OPTION_VERBOSE));
+			leek_result_new_display(verbose);
+
+		if (leek.options.flags & LEEK_OPTION_STOP) {
+			if (leek.stats.successes >= leek.options.stop_count) {
+				printf("[+] Exit triggered by reaching --stop option.\n");
+				__sync_and_and_fetch(&leek.terminal.flags, ~LEEK_TERMINAL_FLAGS_RUNNING);
+			}
+		}
 	}
 
 	if (events & LEEK_EVENT_SHOW_RESULTS)
@@ -409,6 +417,7 @@ out:
 
 static void leek_events_late_handle(void)
 {
+	bool verbose = !!(leek.options.flags & LEEK_OPTION_VERBOSE);
 	unsigned int events;
 
 	/* This is the only kind of late event we care about */
@@ -420,7 +429,7 @@ static void leek_events_late_handle(void)
 	if (events & LEEK_EVENT_NEW_RESULT) {
 		printf("\n");
 		if (leek.options.flags & LEEK_OPTION_SHOW_RESULTS)
-			leek_result_new_display(!!(leek.options.flags & LEEK_OPTION_VERBOSE));
+			leek_result_new_display(verbose);
 	}
 }
 
