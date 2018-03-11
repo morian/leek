@@ -2,7 +2,6 @@
 # define __LEEK_STATS_H
 # include <stdbool.h>
 # include <stdint.h>
-# include <time.h>
 
 struct leek_stats {
 	/* Time and global program metrics */

@@ -2,11 +2,6 @@
 # define __LEEK_WORKER_H
 # include <pthread.h>
 # include <stdint.h>
-# include <openssl/bn.h>
-# include <openssl/rsa.h>
-
-# include "item.h"
-# include "stats.h"
 
 
 /* Holds worker related information */

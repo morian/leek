@@ -1,6 +1,5 @@
 #ifndef __LEAK_HELPER_H
 # define __LEAK_HELPER_H
-# include <stdint.h>
 
 # define LEEK_ADDRESS_LEN              16
 # define LEEK_RAWADDR_LEN              10

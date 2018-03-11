@@ -2,7 +2,6 @@
 # define __LEEK_ITEM_H
 # include <pthread.h>
 
-# include <openssl/bn.h>
 # include <openssl/rsa.h>
 
 # include "primes.h"

@@ -1,10 +1,7 @@
 #ifndef __LEEK_IMPL_H
 # define __LEEK_IMPL_H
-# include <stdio.h>
-
-/* Forward declarations */
-struct leek_rsa_item;
-struct leek_worker;
+# include "item.h"
+# include "worker.h"
 
 
 /* Holds different leek implementations */
