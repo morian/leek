@@ -498,8 +498,10 @@ static int leek_vecx_exhaust(struct leek_rsa_item *item, struct leek_worker *wk)
 					ret = leek_result_recheck(item, e, result);
 					if (ret < 0)
 						__sync_add_and_fetch(&leek.stats.recheck_failures, 1);
-					else
+					else {
 						leek_result_handle(item->rsa, e, length, result);
+						item->flags |= LEEK_RSA_ITEM_DESTROY;
+					}
 				}
 			}
 
@@ -507,9 +509,16 @@ static int leek_vecx_exhaust(struct leek_rsa_item *item, struct leek_worker *wk)
 			wk->stats.hash_count += VECX_LANE_COUNT;
 		}
 
+		/* Check for LEEK_WORKER_FLAG_EXITING */
+		if (wk->flags & LEEK_WORKER_FLAG_EXITING)
+			goto exiting;
+
 		vexpo[1] = vecx_add(vexpo[1], vincr[1]);
 	}
 
+	return 1;
+
+exiting:
 	return 0;
 }
 

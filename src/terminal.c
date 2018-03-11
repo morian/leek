@@ -113,8 +113,7 @@ static int leek_terminal_handle_stdin(void)
 		case 'S':
 			verbose = 1;
 		case 's':
-			/* TODO: implement statistics here */
-			// leek_status_display(verbose);
+			leek_status_display(verbose);
 			break;
 
 		case 'h':

@@ -66,12 +66,21 @@ static int __hot leek_openssl_exhaust(struct leek_rsa_item *item, struct leek_wo
 			ret = leek_result_recheck(item, e, sha1_addr);
 			if (ret < 0)
 				__sync_add_and_fetch(&leek.stats.recheck_failures, 1);
-			else
+			else {
 				leek_result_handle(item->rsa, e, length, sha1_addr);
+				item->flags |= LEEK_RSA_ITEM_DESTROY;
+			}
 		}
 		wk->stats.hash_count++;
+
+		/* Check for LEEK_WORKER_FLAG_EXITING */
+		if (wk->flags & LEEK_WORKER_FLAG_EXITING)
+			goto exiting;
 	}
 
+	return 1;
+
+exiting:
 	return 0;
 }
 

@@ -15,7 +15,15 @@ struct leek_context leek;
 
 static void leek_exit(void)
 {
+	/* Do not attempt to show any stats if we failed during init */
+	if (leek.stats.flags & LEEK_STATS_FLAG_RUNNING) {
+		printf("[+] Closing all threads and collecting statuses.\n");
+		printf("[+] End of job status:\n");
+		leek_stats_application_display();
+	}
+
 	leek_workers_stop();
+	leek_primes_exit();
 	leek_events_exit();
 	leek_hashes_clean();
 	leek_openssl_exit();
@@ -87,14 +95,21 @@ static int leek_start(void)
 	leek.stats.ts_start = leek_timestamp();
 	leek.stats.flags |= LEEK_STATS_FLAG_RUNNING;
 
-	ret = leek_workers_start();
+	/* Prime number subsystem for RSA generation */
+	ret = leek_primes_init();
 	if (ret < 0)
 		goto events_exit;
+
+	ret = leek_workers_start();
+	if (ret < 0)
+		goto primes_exit;
 
 	ret = leek_terminal_runner();
 out:
 	return ret;
 
+primes_exit:
+	leek_primes_exit();
 events_exit:
 	leek_events_exit();
 	goto out;

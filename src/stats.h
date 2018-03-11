@@ -1,5 +1,6 @@
 #ifndef __LEEK_STATS_H
 # define __LEEK_STATS_H
+# include <stdbool.h>
 # include <stdint.h>
 # include <time.h>
 
@@ -19,6 +20,16 @@ struct leek_stats {
 enum {
 	LEEK_STATS_FLAG_RUNNING  = (1 << 0),
 };
+
+
+/** Monitoring **/
+/* Individual statistics display (called by leek_status_display) */
+void leek_stats_application_display(void);
+void leek_stats_perf_display(bool individual);
+void leek_stats_primes_display(void);
+
+/* Show all statuses listed above */
+void leek_status_display(bool verbose);
 
 /** Probability computations **/
 /* Update probability statistics (to do after lookup length is chosen). */

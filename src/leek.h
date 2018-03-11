@@ -4,6 +4,7 @@
 # include "helper.h"
 # include "impl.h"
 # include "options.h"
+# include "primes.h"
 # include "stats.h"
 # include "terminal.h"
 # include "worker.h"
@@ -23,6 +24,9 @@ struct leek_context {
 
 	/* Terminal related data and events */
 	struct leek_terminal terminal;
+
+	/* Prime number sub-system for RSA generation */
+	struct leek_primes primes;
 
 	/* All worker structures (one per-thread) */
 	struct leek_workers workers;
