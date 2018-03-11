@@ -78,7 +78,7 @@ Usage
 Simple prefix lookup is something like this:
 
 ```sh
-./leek --prefix gitleek
+./leek --verbose --prefix gitleek
 ```
 
 Result on `stdout` (after a few minutes) would look as follow:
@@ -149,7 +149,7 @@ Leek uses all available logical cores by default.
 
 Coarse average time to generate a .onion with a given prefix length on a 150MH/s configuration:
 
-| len(prefix) | Time          |
+| len(prefix) |          Time |
 |-------------|---------------|
 | 4           |         00:00 |
 | 5           |         00:00 |
