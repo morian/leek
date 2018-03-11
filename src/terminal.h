@@ -14,7 +14,7 @@ struct leek_terminal {
 
 	/* Ring of results */
 	struct {
-		struct leek_result *head; /* Head of the ring */
+		struct leek_result *head;   /* Head of the ring */
 		unsigned int count;         /* Current number of items */
 		pthread_mutex_t lock;       /* Locks operations on the ring */
 	} ring;

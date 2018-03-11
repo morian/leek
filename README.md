@@ -18,7 +18,7 @@ Search features include:
 There is no regex based lookup as you might find in eschalot, mostly because of the lack of interest.
 
 Special thanks and references:
-   - Leek software architecture is inspired by [eschalot] (itself forked from [shallot])
+   - Some of the software architecture is inspired by [eschalot] (itself forked from [shallot])
    - Original SHA1 vectorized implementation was provided by a friend and partially reworked
    - [Intel Intrinsics Guide]
    - [AVX512 Ternary functions] by [0x80.pl]
@@ -39,15 +39,15 @@ Default compilation produces a re-usable binary that you can transfer to any oth
 
 ```sh
 make
-./src/leek --help
+./leek --help
 ```
 
 You can also get a slight increase in performances building a machine-specific binary using additional `CFLAGS`.
 The generated binary will most likely not work on older machines though.
 
 ```sh
-make CFLAGS=-march=native
-./src/leek --help
+CFLAGS=-march=native make
+./leek --help
 ```
 
 
@@ -59,12 +59,13 @@ Options
 	 -i, --input        input dictionary with prefixes.
 	 -o, --output       output directory (default prints on stdout).
 	 -l, --length=N:M   length filter for dictionary attack [4-16].
+	 -d, --duration     how long to run (in seconds, default is infinite).
 	 -t, --threads=#    worker threads count (default is all cores).
 	 -I, --impl=#       select implementation (see bellow).
 	 -s, --stop(=1)     stop processing after # success (default is infinite).
-	 -b, --benchmark    show average speed instead of current speed.
 	 -v, --verbose      show verbose run information.
 	 -h, --help         show this help and exit.
+	     --no-results   do not display live results on stdout.
 	
 	Available implementations:
 	  OpenSSL
@@ -82,23 +83,26 @@ Simple prefix lookup is something like this:
 
 Result on `stdout` (after a few minutes) would look as follow:
 ```
-[|] Speed: 60.7MH/s   Total: 12.07GH   T(avg): 0:00:06:39   Elapsed: 0:00:03:22 ( 29.63%)
-[+] Found gitleekymhxsnt4w.onion (size=7, popcnt(e)=14, ID=1)
+[+] Loaded 1 valid prefixes with size 7.
+[+] Using AVX2 implementation on 4 worker threads.
+> gitleekb5tmg7kkw.onion (len:7, e:0x543008c5 (10), id=0)
 -----BEGIN RSA PRIVATE KEY-----
-MIICXQIBAAKBgQCxL752NLsBvLohiEauylMYVlK5MMpCQS646j5pUuGNh5UTti7H
-WLlx/axbOPsRs1qHBvXGw347JndExzrSjUMHjgnARLkUF13AC5t9qzRXITw+mHxJ
-7ynlkiLu1DrCxNl1/sXjiMPcSTZ0t41gAKYPGLxy7vBeQPBCleaMQZJH0QIEYSY2
-SwKBgASBfBZYqboZbk4ad2BVCPOdiF+rGeglM18w5EBstuknMGDy2MzJcIcaBOJM
-8uwPcONh1Y2h6r9M9biQiUgcE+XG/H290yA0Q/2P34DAZfzVjxj245ceCZGT/QoQ
-3rhMZi3IplGrJyj1cHrbJmg37xxvIC6hJWjtAsapIvCpPZtTAkEA5wZA1/RlJzbi
-iGfi258GP2tbeEmkrd/8AQ/FmySYsqXOusGv8MqevWKEqh8bLOwr1hqVuaIPpwmM
-aW1Ef//gGQJBAMRXfftKuLFUOrFAWBBmsp/bydZkSxLmIic0cBM/OLZI1MJoSQKj
-x9RlNE3Qj12/BdBEa88TODXF/dE32AdnvHkCQQDB3xbTu/MhVjghmoCZ/jLXJ/F1
-6fXDGmvs3bl3pDHSbUnDM9TcqM7ni0TPRKZ/7003UW9L0hiNQUR8KID8P0Z7AkA6
-Vkyh0vRcxDZD4e4mBry3xsl1vKIhVvL4gPKHqka1Zfk6WfQJahCXKMFhhk3BVioM
-dPjsUndkcLwwNiqhtdZLAkAoXJ3elHG1qGTaKNQ17qn92IMnL6QjLExTyIeUJTih
-BnXkADelnNQx/+MLw56x/16dMEO4YXIMgeF63gBTY2D3
+MIICXgIBAAKBgQC9En/ra+U5LHOJSzsNLZbsDGvZxyaWPSBQ7qfhIpkGdbcrj/tt
+uwdeMAsweoCLtwMQjFBp3/HaZZxFtKbv84TXL3sALKowN7HukVPp2VNPU30+E2lt
+59F8ZhivWoSXy+LfPjBIeXsyrF9i6xlkhiNj6LnQTf+QOmgXmevWmvvkZwIEVDAI
+xQKBgDTb+uDjY+6N8W1dIxc5SEJNfBEgYpa13R+0e/8fzz7PBxFUyFYhBIe6gmu0
+211V7KVSSGm0HrBVL4A5PxqpsYHMPCpSvHFRyXUDIQFDKoRX0ezrtFeOkuSU5z9s
+o7PgljJx6zxr7mA1BnZWHxmTk0qWYKnwxT4+8hY95p7GTN3RAkEA+YG1AX9Ue9ki
+8v83zEvGMDuq+acyJhD/8eLOp0MYQk4rEfAKRSxdk5G888zjG0v8/KE5xpAi7WC0
+kylaG1HJ+wJBAMH+KMyf04b8mTdNeLSHdT0VxlJ1yzdOxR5cEQwDAX6TTDMdHxOm
+Bz2N/b8lWjWGoBKZNPBqjnUOmDocO3nEz4UCQQDPaH0UcLQvQ3801x+xMLCrxAQq
+whrkg2AoziuwHsbgp3dTMGNaHWLkCslmqsSkU4SJihHkiNoYJur4JUXXOdknAkAn
+l8qe3ann3HjvuFESV7eo2faz5YRMayKl1kVLGQkrBA4px1Xblm6wYQ5890vZzgFW
++h1zYvWLT5uej+gTw7hNAkEAyh0aypskUpYOW4lqETyPW0u0XivHV87uGIXQq9r7
+GmOUJm9URoBVbo9fUVvtoxZ6ZBQVa6gGKtHNQm2Zhll9Rg==
 -----END RSA PRIVATE KEY-----
+
+[h]elp [s]tatus [f]ound [q]uit =>
 ```
 
 Put the RSA private key in a file called `private_key` in the `HiddenServiceDir` as specified in your torrc, then restart your service.
@@ -110,17 +114,18 @@ Security
 All generated RSA keypairs are checked using standard OpenSSL methods.
 The only drawback I see from this way of generating .onion addresses is the unusual size of the public exponent e.
 This unusual size makes it obvious that you used Leek or any other similar software for .onion address generation.
-It also introduces a minor performance overhead for all exchanges between you and the .onion clients connecting to your server.
+It also introduces a minor performance overhead for the initial connection from the clients.
 The bigger **popcnt(e)**, the longer it takes to establish a connection with your server.
 
 
 Performance
 -----------
-Leek provides a few metrics during the generation:
-   - **Speed**: Generation speed in Hash per second (candidate/s)
-   - **Total**: Number of checked candidates
-   - **T(avg)**: Estimated time to reach a 50% success probability
-   - **Elapsed**: Elapsed time in generation so far with probability to already have a success
+Leek provides a few metrics during the generation (using 's'):
+   - **Hashs**: Total number of checked candidates
+   - **Rate**: Generation speed in Hash per second (candidate/s)
+   - **Tavg**: Average time between two results at current rate
+   - **Percent**: Success probabilities so far
+   - **Elapsed**: Elapsed time in generation so far
 
 The underlying generation process is just a matter of luck and time.
 
@@ -136,25 +141,26 @@ A few performance measurements (in MH/s) on different target CPUs.
 
 All performance measures are taken after an elapsed time of 60 seconds, using the following command:
 ```sh
-./leek --benchmark --prefix leekleek
+./leek --duration 60 --no-result --prefix leekleek
 ```
 Performances are all measured using any available GCC version with default compile flags from Makefile.
 Leek uses all available logical cores by default.
 
 
-Coarse average time (50% chances) to generate a .onion with a given prefix length on a 150MH/s configuration:
+Coarse average time to generate a .onion with a given prefix length on a 150MH/s configuration:
 
 | len(prefix) | Time          |
 |-------------|---------------|
-| 4           | instant       |
-| 5           | instant       |
-| 6           | 4 seconds     |
-| 7           | 2 minutes     |
-| 8           | 1 hour        |
-| 9           | 2 days        |
-| 10          | 55 days       |
-| 11          | 5 years       |
-| 12          | 155 years     |
+| 4           |         00:00 |
+| 5           |         00:00 |
+| 6           |         00:06 |
+| 7           |         03:15 |
+| 8           |      01:44:00 |
+| 9           |    2:08:00:00 |
+| 10          |   74:21:00:00 |
+| 11          | 2365:00:00:00 |
+
+Every additional character multiplies the required time by 32 for a fixed number of prefixes.
 
 
 FAQ

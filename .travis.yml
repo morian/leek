@@ -75,5 +75,5 @@ before_script:
   - as --version
 script:
   - make
-  - ./src/leek --help
-  - ./src/leek --benchmark --stop --verbose --prefix travis
+  - ./leek --help
+  - ./leek --stop --duration 60s --verbose --prefix travis
