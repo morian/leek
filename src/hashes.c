@@ -7,7 +7,7 @@
 #include "leek.h"
 
 
-static void leek_base32_convert(uint8_t *dst, const char *src)
+static void leek_base32_convert(uint8_t *restrict dst, const char *restrict src)
 {
 	uint8_t tmp[LEEK_ADDRESS_LEN + 1];
 
@@ -34,7 +34,7 @@ static void leek_base32_convert(uint8_t *dst, const char *src)
 }
 
 
-void leek_base32_enc(uint8_t *dst, const uint8_t *src)
+void leek_base32_enc(uint8_t *restrict dst, const uint8_t *restrict src)
 {
 	dst[ 0] = LEEK_BASE32_ALPHABET[ (src[0] >> 3)                       ];
 	dst[ 1] = LEEK_BASE32_ALPHABET[((src[0] << 2) | (src[1] >> 6))  & 31];

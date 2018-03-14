@@ -48,7 +48,7 @@ struct leek_hashes {
 };
 
 /* Encode a base32 address in a humanly readable way */
-void leek_base32_enc(uint8_t *dst, const uint8_t *src);
+void leek_base32_enc(uint8_t *restrict dst, const uint8_t *restrict src);
 
 /* Either from file or single prefix mode */
 int leek_hashes_load(void);
