@@ -54,6 +54,7 @@ static inline vecx vecx_add(vecx x, vecx y)
 
 /* This is necessary with clang as 'y' is supposed to be an immediate. */
 #define vecx_shl(x, y)  _mm512_slli_epi32(x, y)
+#define vecx_shr(x, y)  _mm512_srli_epi32(x, y)
 #define vecx_rol(x, y)  _mm512_rol_epi32(x, y)
 #define vecx_ror(x, y)  _mm512_ror_epi32(x, y)
 

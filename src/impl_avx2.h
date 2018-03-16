@@ -56,16 +56,21 @@ static inline vecx vecx_shl(vecx x, int y)
 	return _mm256_slli_epi32(x, y);
 }
 
+static inline vecx vecx_shr(vecx x, int y)
+{
+	return _mm256_srli_epi32(x, y);
+}
+
 static inline vecx vecx_rol(vecx x, int y)
 {
 	vecx a = vecx_shl(x, y);
-	vecx b = _mm256_srli_epi32(x, 32 - y);
+	vecx b = vecx_shr(x, 32 - y);
 	return vecx_or(a, b);
 }
 
 static inline vecx vecx_ror(vecx x, int y)
 {
-	vecx a = _mm256_srli_epi32(x, y);
+	vecx a = vecx_shr(x, y);
 	vecx b = vecx_shl(x, 32 - y);
 	return vecx_or(a, b);
 }
