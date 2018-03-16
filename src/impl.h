@@ -35,6 +35,7 @@ int leek_implementation_select(const char *name);
 
 /** All known implementations (build time) **/
 const struct leek_implementation leek_impl_openssl;
+const struct leek_implementation leek_impl_uint;
 const struct leek_implementation leek_impl_ssse3;
 const struct leek_implementation leek_impl_avx2;
 const struct leek_implementation leek_impl_avx512;

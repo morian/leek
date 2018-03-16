@@ -15,6 +15,11 @@ union leek_rawaddr {
 		uint16_t index;
 		uint64_t suffix;
 	} __packed;
+	struct {
+		uint32_t prefix;
+		uint32_t middle;
+		uint16_t tail;
+	} __packed;
 };
 
 struct leek_hash_bucket {

@@ -429,6 +429,7 @@ static int leek_vecx_precalc(struct leek_rsa_item *item, const void *ptr, size_t
 
 	leek_vecx_block_finalize(lv, ptr, len);
 	leek_exhaust_prepare(lv);
+	leek_exhaust_precalc_1(lv);
 
 	ret = 0;
 out:
@@ -466,9 +467,6 @@ static int leek_vecx_exhaust(struct leek_rsa_item *item, struct leek_worker *wk)
 
 	vexpo[0] = lv->vexpo[0];
 	vexpo[1] = lv->vexpo[1];
-
-	/* Stage1 pre-computation */
-	leek_exhaust_precalc_1(lv);
 
 	/* While using RSA 1024, inner is 16 and outer is 8388608 (on AVX2)
 	 * This makes sense to perform the outer loop inside the inner loop
