@@ -20,6 +20,11 @@ leek: $(L_OBJECTS)
 
 $(L_OBJECTS): $(L_HEADERS)
 
+PHONY += install
+install: $(L_PROGS)
+	install -m 755 -d $(DESTDIR)/usr/bin/
+	install -m 755 $(L_PROGS) $(DESTDIR)/usr/bin/
+
 PHONY += clean
 clean:
 	rm --force $(L_OBJECTS)
