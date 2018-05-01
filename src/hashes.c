@@ -211,8 +211,10 @@ static int leek_hashes_readfp(FILE *fp)
 		if (ret < 0)
 			break;
 
-		length = (ret > LEEK_ADDRESS_LEN && !strncmp(&line[LEEK_ADDRESS_LEN], ".onion", 6))
-		       ? LEEK_ADDRESS_LEN : ret - 1;
+		if (ret > LEEK_ADDRESS_LEN && !strncmp(&line[LEEK_ADDRESS_LEN], ".onion", 6))
+			length = LEEK_ADDRESS_LEN;
+		else
+			length = (line[ret - 1] == '\n') ? ret - 1 : ret;
 		line[length] = 0;
 
 		/* Ensures that everything is cleared in the destination address buffer */
