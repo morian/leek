@@ -112,6 +112,7 @@ static int leek_terminal_handle_stdin(void)
 
 		case 'S':
 			verbose = 1;
+		/* fall-through */
 		case 's':
 			leek_status_display(verbose);
 			break;
@@ -123,6 +124,7 @@ static int leek_terminal_handle_stdin(void)
 
 		case 'F':
 			verbose = 1;
+		/* fall-through */
 		case 'f':
 			leek_result_found_display(verbose);
 			break;

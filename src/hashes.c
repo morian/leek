@@ -232,6 +232,7 @@ static int leek_hashes_readfp(FILE *fp)
 			switch (ret) {
 				case LEEK_HASH_ENQUEUE_SUCCESS:
 					leek.hashes.stats.length[length - 1]++;
+				/* fall-through */
 
 				case LEEK_HASH_ENQUEUE_DUPLICATE:
 					len_min = (length < len_min) ? length : len_min;

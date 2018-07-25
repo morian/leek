@@ -99,21 +99,25 @@ static unsigned long leek_options_scan_duration(const char *arg)
 		case 'W':
 		case 'w':
 			value *= 7;
+		/* fall-through */
 
 		/* Days */
 		case 'D':
 		case 'd':
 			value *= 24;
+		/* fall-through */
 
 		/* Hours */
 		case 'H':
 		case 'h':
 			value *= 60;
+		/* fall-through */
 
 		/* Minutes */
 		case 'M':
 		case 'm':
 			value *= 60;
+		/* fall-through */
 
 		case '\0':
 		case 'S':
