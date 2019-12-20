@@ -1,5 +1,5 @@
 language: c
-dist: trusty
+dist: xenial
 sudo: required
 group: travis_latest
 matrix:
@@ -35,23 +35,24 @@ matrix:
             - gcc-7
       env:
         - MATRIX_EVAL="CC=gcc-7"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - libssl-dev
+            - gcc-8
+      env:
+        - MATRIX_EVAL="CC=gcc-8"
+
 
     # CLANG based compilation.
     - os: linux
       addons:
         apt:
           sources:
-            - llvm-toolchain-trusty-3.9
-          packages:
-            - libssl-dev
-            - clang-3.9
-      env:
-        - MATRIX_EVAL="CC=clang-3.9"
-    - os: linux
-      addons:
-        apt:
-          sources:
-            - llvm-toolchain-trusty-4.0
+            - llvm-toolchain-xenial-4.0
           packages:
             - libssl-dev
             - clang-4.0
@@ -61,17 +62,25 @@ matrix:
       addons:
         apt:
           sources:
-            - llvm-toolchain-trusty-5.0
+            - llvm-toolchain-xenial-5.0
           packages:
             - libssl-dev
             - clang-5.0
       env:
         - MATRIX_EVAL="CC=clang-5.0"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-xenial-6.0
+          packages:
+            - libssl-dev
+            - clang-6.0
+      env:
+        - MATRIX_EVAL="CC=clang-6.0"
 before_script:
   - eval "${MATRIX_EVAL}"
   - ${CC} --version
-  - wget 'https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test/+files/binutils_2.27-9ubuntu1_amd64.deb'
-  - sudo dpkg -i binutils_2.27-9ubuntu1_amd64.deb
   - as --version
 script:
   - make
