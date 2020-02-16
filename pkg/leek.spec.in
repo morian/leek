@@ -1,0 +1,31 @@
+Name: @PACKAGE@
+Version: @VERSION@
+Release: 1
+License: MIT
+Summary: SSE/AVX2/AVX512 onion address generator.
+
+Source0: %{name}-%{version}.tar.bz2
+
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
+BuildRequires: openssl-devel
+
+%description
+Leek is a onion domain name generator using SIMD instruction sets provided
+by x86 processors (SSE, AVX2, AVX512).
+
+%prep
+%setup -q
+
+%build
+%configure --disable-static
+make %{?_smp_mflags}
+
+%install
+make install DESTDIR="${RPM_BUILD_ROOT}"
+
+%clean
+[ "${RPM_BUILD_ROOT}" != "/" ] && rm --recursive --force "${RPM_BUILD_ROOT}"
+
+%files
+%defattr(-,root,root,-)
+%{_bindir}/leek

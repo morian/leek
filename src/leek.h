@@ -1,5 +1,6 @@
 #ifndef __LEEK_H
 # define __LEEK_H
+# include "config.h"
 # include "hashes.h"
 # include "helper.h"
 # include "impl.h"
@@ -9,7 +10,7 @@
 # include "terminal.h"
 # include "worker.h"
 
-# define LEEK_CPU_VERSION          "v2.0.4"
+# define LEEK_CPU_VERSION          VERSION
 
 /* leek application context */
 struct leek_context {

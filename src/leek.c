@@ -39,7 +39,7 @@ static int leek_init(void)
 	printf("|   |    |     |    __)_  |    __)_ |      <     |\n");
 	printf("|   |    |___  |        \\ |        \\|    |  \\    |\n");
 	printf("|   |_______ \\/_______  //_______  /|____|__ \\   |\n");
-	printf("|           \\/        \\/         \\/  %6s \\/   |\n", LEEK_CPU_VERSION);
+	printf("|           \\/        \\/         \\/  v%5s \\/   |\n", LEEK_CPU_VERSION);
 	printf(".________________________________________________.\n\n");
 
 
