@@ -1,0 +1,24 @@
+stages:
+  - build
+  - tests
+
+build:
+  image: ${CI_REGISTRY}/dockers/ci/centos-build:8
+  stage: build
+  before_script:
+    - dnf install -y openssl-devel
+  script:
+    - make
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - leek
+
+tests:
+  image: ${CI_REGISTRY}/dockers/ci/centos-build:8
+  stage: tests
+  dependencies:
+    - build
+  script:
+    - ./leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - python tests/checker.py output/*
