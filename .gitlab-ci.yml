@@ -8,7 +8,10 @@ build:
   before_script:
     - dnf install -y openssl-devel
   script:
+    - bash autogen.sh
+    - ./configure
     - make
+    - make rpm
   artifacts:
     expire_in: 2 days
     paths:
