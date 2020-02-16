@@ -33,7 +33,7 @@ static int leek_init(void)
 
 	printf(".________________________________________________.\n");
 	printf("|                                                |\n");
-	printf("|         Pool on the root must have a           |\n");
+	printf("|         Pool on the roof must have a           |\n");
 	printf("|   .____     ______________________ ____  __.   |\n");
 	printf("|   |    |    \\_   _____/\\_   _____/|    |/ _|   |\n");
 	printf("|   |    |     |    __)_  |    __)_ |      <     |\n");
