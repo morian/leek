@@ -19,6 +19,8 @@ tests:
   stage: tests
   dependencies:
     - build
+  before_script:
+    - dnf install -y python3-pyasn1 python3-pyasn1-modules
   script:
     - ./leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
     - python tests/checker.py output/*
