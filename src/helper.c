@@ -37,7 +37,8 @@ out:
 }
 
 
-static void leek_lock_callback(int mode, int type, const char *file, int line)
+static __attribute__((unused))
+void leek_lock_callback(int mode, int type, const char *file, int line)
 {
 	if (mode & CRYPTO_LOCK)
 		pthread_mutex_lock(&leek_openssl_locks[type]);
@@ -49,7 +50,8 @@ static void leek_lock_callback(int mode, int type, const char *file, int line)
 }
 
 
-static unsigned long leek_thread_id(void)
+static __attribute__((unused))
+unsigned long leek_thread_id(void)
 {
 	return (unsigned long) pthread_self();
 }

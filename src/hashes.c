@@ -287,7 +287,7 @@ static int leek_hash_add(const char *word)
 		char buffer[LEEK_ADDRESS_LEN + 1] = { 0 };
 
 		/* Ensures that hash enqueue does not read garbage data */
-		strncpy(buffer, word, length);
+		strncpy(buffer, word, LEEK_ADDRESS_LEN);
 
 		ret = leek_hash_enqueue(length, buffer);
 		if (ret < 0)
