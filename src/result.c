@@ -25,14 +25,14 @@ static int leek_crypto_rsa_check(RSA *rsa)
 	BIGNUM *tmp = BN_CTX_get(ctx);    /* temporary storage */
 
 #if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1
-	BIGNUM const *n = BN_CTX_get(ctx);
-	BIGNUM const *e = BN_CTX_get(ctx),
-	BIGNUM const *d = BN_CTX_get(ctx);
-	BIGNUM const *p = BN_CTX_get(ctx),
-	BIGNUM const *q = BN_CTX_get(ctx);
-	BIGNUM const *dmp1 = BN_CTX_get(ctx),
-	BIGNUM const *dmq1 = BN_CTX_get(ctx),
-	BIGNUM const *iqmp = BN_CTX_get(ctx);
+	const BIGNUM *n;
+	const BIGNUM *e;
+	const BIGNUM *d;
+	const BIGNUM *p;
+	const BIGNUM *q;
+	const BIGNUM *dmp1;
+	const BIGNUM *dmq1;
+	const BIGNUM *iqmp;
 
 	RSA_get0_key(rsa, &n, &e, &d);
 	if (!n || !e || !d)
@@ -80,9 +80,9 @@ static int leek_crypto_rsa_check(RSA *rsa)
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1
-	BIGNUM *new_d = BN_new(),
-	BIGNUM *new_dmp1 = BN_new(),
-	BIGNUM *new_dmq1 = BN_new(),
+	BIGNUM *new_d = BN_new();
+	BIGNUM *new_dmp1 = BN_new();
+	BIGNUM *new_dmq1 = BN_new();
 	BIGNUM *new_iqmp = BN_new();
 
 	BN_mod_inverse(new_d, e, lambda, ctx);  /* d */
@@ -421,11 +421,11 @@ int leek_result_recheck(struct leek_rsa_item *item, unsigned int exponent,
 #if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1
 	BIGNUM *new_e;
 
-	new_e = BN_bin2bn(&e_be, LEEK_RSA_E_SIZE, NULL);
+	new_e = BN_bin2bn((uint8_t *) &e_be, LEEK_RSA_E_SIZE, NULL);
 	if (!new_e)
 		goto out;
 
-	if(!RSA_set0_key(rsa, NULL, new_e, NULL)) {
+	if (!RSA_set0_key(rsa, NULL, new_e, NULL)) {
 		BN_free(new_e);
 		goto out;
 	}

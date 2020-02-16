@@ -67,6 +67,16 @@ der_free:
 static int leek_item_rsa_generate_key(struct leek_rsa_item *item, BIGNUM *big_e)
 {
 	RSA *rsa = item->rsa;
+	/* Meant to be transfered to RSA structure, allocated with BN_new() */
+	BIGNUM *rsa_n = NULL;
+	BIGNUM *rsa_d = NULL;
+	BIGNUM *rsa_e = NULL;
+	BIGNUM *rsa_p = NULL;
+	BIGNUM *rsa_q = NULL;
+	BIGNUM *rsa_dmp1 = NULL;
+	BIGNUM *rsa_dmq1 = NULL;
+	BIGNUM *rsa_iqmp = NULL;
+	/* Used for temporary computations, allocated in context */
 	BIGNUM *r0 = NULL;
 	BIGNUM *r1 = NULL;
 	BIGNUM *r2 = NULL;
@@ -81,54 +91,49 @@ static int leek_item_rsa_generate_key(struct leek_rsa_item *item, BIGNUM *big_e)
 	r0 = BN_CTX_get(ctx);
 	r1 = BN_CTX_get(ctx);
 	r2 = BN_CTX_get(ctx);
-	if (!r2)
+	if (!r0 || !r1 || !r2)
 		goto err;
 
 	/* We need the RSA components non-NULL */
-	if (!rsa->n && ((rsa->n = BN_new()) == NULL))
-		goto err;
-	if (!rsa->d && ((rsa->d = BN_new()) == NULL))
-		goto err;
-	if (!rsa->e && ((rsa->e = BN_new()) == NULL))
-		goto err;
-	if (!rsa->p && ((rsa->p = BN_new()) == NULL))
-		goto err;
-	if (!rsa->q && ((rsa->q = BN_new()) == NULL))
-		goto err;
-	if (!rsa->dmp1 && ((rsa->dmp1 = BN_new()) == NULL))
-		goto err;
-	if (!rsa->dmq1 && ((rsa->dmq1 = BN_new()) == NULL))
-		goto err;
-	if (!rsa->iqmp && ((rsa->iqmp = BN_new()) == NULL))
+	rsa_n    = BN_new();
+	rsa_d    = BN_new();
+	rsa_e    = BN_new();
+	rsa_p    = BN_new();
+	rsa_q    = BN_new();
+	rsa_dmp1 = BN_new();
+	rsa_dmq1 = BN_new();
+	rsa_iqmp = BN_new();
+
+	if (!rsa_n || !rsa_d || !rsa_e || !rsa_p || !rsa_q ||
+	    !rsa_dmp1 || !rsa_dmq1 || !rsa_iqmp)
 		goto err;
 
-	/* P and Q are provided by our prime generation subsystem */
-	if (!BN_copy(rsa->e, big_e))
+	if (!BN_copy(rsa_e, big_e))
 		goto err;
-	if (!BN_copy(rsa->p, item->prime_p->p))
+	if (!BN_copy(rsa_p, item->prime_p->p))
 		goto err;
-	if (!BN_copy(rsa->q, item->prime_q->p))
+	if (!BN_copy(rsa_q, item->prime_q->p))
 		goto err;
 
 	/* Calculate N here */
-	if (!BN_mul(rsa->n, rsa->p, rsa->q, ctx))
+	if (!BN_mul(rsa_n, rsa_p, rsa_q, ctx))
 		goto err;
 
 	/* Re-order primes */
-	if (BN_cmp(rsa->p, rsa->q) < 0) {
+	if (BN_cmp(rsa_p, rsa_q) < 0) {
 		BIGNUM *tmp;
 
-		tmp = rsa->p;
-		rsa->p = rsa->q;
-		rsa->q = tmp;
+		tmp = rsa_p;
+		rsa_p = rsa_q;
+		rsa_q = tmp;
 	}
 
 	/* Calculate d */
 	/* p - 1 */
-	if (!BN_sub(r1, rsa->p, BN_value_one()))
+	if (!BN_sub(r1, rsa_p, BN_value_one()))
 		goto err;
 	/* q - 1 */
-	if (!BN_sub(r2, rsa->q, BN_value_one()))
+	if (!BN_sub(r2, rsa_q, BN_value_one()))
 		goto err;
 	/* (p - 1)(q - 1) */
 	if (!BN_mul(r0, r1, r2, ctx))
@@ -142,7 +147,7 @@ static int leek_item_rsa_generate_key(struct leek_rsa_item *item, BIGNUM *big_e)
 
 		BN_with_flags(pr0, r0, BN_FLG_CONSTTIME);
 
-		if (!BN_mod_inverse(rsa->d, rsa->e, pr0, ctx)) {
+		if (!BN_mod_inverse(rsa_d, rsa_e, pr0, ctx)) {
 			fprintf(stderr, "ERROR ON MOD INVERSE 1.\n");
 			BN_free(pr0);
 			goto err;
@@ -157,11 +162,11 @@ static int leek_item_rsa_generate_key(struct leek_rsa_item *item, BIGNUM *big_e)
 		if (!d)
 			goto err;
 
-		BN_with_flags(d, rsa->d, BN_FLG_CONSTTIME);
+		BN_with_flags(d, rsa_d, BN_FLG_CONSTTIME);
 
 		/* calculate d mod (p-1) and d mod (q - 1) */
-		if (!BN_mod(rsa->dmp1, d, r1, ctx)
-				|| !BN_mod(rsa->dmq1, d, r2, ctx)) {
+		if (!BN_mod(rsa_dmp1, d, r1, ctx)
+				|| !BN_mod(rsa_dmq1, d, r2, ctx)) {
 			fprintf(stderr, "ERROR ON MOD.\n");
 			BN_free(d);
 			goto err;
@@ -177,10 +182,10 @@ static int leek_item_rsa_generate_key(struct leek_rsa_item *item, BIGNUM *big_e)
 		if (!p)
 			goto err;
 
-		BN_with_flags(p, rsa->p, BN_FLG_CONSTTIME);
+		BN_with_flags(p, rsa_p, BN_FLG_CONSTTIME);
 
 		/* calculate inverse of q mod p */
-		if (!BN_mod_inverse(rsa->iqmp, rsa->q, p, ctx)) {
+		if (!BN_mod_inverse(rsa_iqmp, rsa_q, p, ctx)) {
 			fprintf(stderr, "ERROR ON MOD INVERSE 2.\n");
 			BN_free(p);
 			goto err;
@@ -190,8 +195,49 @@ static int leek_item_rsa_generate_key(struct leek_rsa_item *item, BIGNUM *big_e)
 		BN_free(p);
 	}
 
+#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1
+	ret = RSA_set0_key(rsa, rsa_n, rsa_e, rsa_d);
+	if (!ret)
+		goto err;
+	rsa_n = rsa_e = rsa_d = NULL;
+
+	ret = RSA_set0_factors(rsa, rsa_p, rsa_q);
+	if (!ret)
+		goto err;
+	rsa_p = rsa_q = NULL;
+
+	ret = RSA_set0_crt_params(rsa, rsa_dmp1, rsa_dmq1, rsa_iqmp);
+	if (!ret)
+		goto err;
+	rsa_dmp1 = rsa_dmq1 = rsa_iqmp = NULL;
+#else
+	rsa->n = rsa_n;
+	rsa->d = rsa_d;
+	rsa->e = rsa_e;
+	rsa_n = rsa_e = rsa_d = NULL;
+
+	rsa->p = rsa_p;
+	rsa->q = rsa_q;
+	rsa_p = rsa_q = NULL;
+
+	rsa->dmp1 = rsa_dmp1;
+	rsa->dmq1 = rsa_dmq1;
+	rsa->iqmp = rsa_iqmp;
+	rsa_dmp1 = rsa_dmq1 = rsa_iqmp = NULL;
+#endif
+
 	ret = 0;
 err:
+	/* Pointers here are NULL when ownership has been transfered to RSA */
+	BN_free(rsa_n);
+	BN_free(rsa_d);
+	BN_free(rsa_e);
+	BN_free(rsa_p);
+	BN_free(rsa_q);
+	BN_free(rsa_dmp1);
+	BN_free(rsa_dmq1);
+	BN_free(rsa_iqmp);
+
 	if (ret < 0)
 		RSAerr(RSA_F_RSA_BUILTIN_KEYGEN, ERR_LIB_BN);
 	if (ctx)
