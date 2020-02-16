@@ -17,7 +17,7 @@ by x86 processors (SSE, AVX2, AVX512).
 %setup -q
 
 %build
-%configure --disable-static
+%configure
 make %{?_smp_mflags}
 
 %install

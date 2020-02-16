@@ -2,7 +2,34 @@ stages:
   - build
   - tests
 
-build:
+centos7-build:
+  image: ${CI_REGISTRY}/dockers/ci/centos-build:7
+  stage: build
+  before_script:
+    - yum install -y openssl-devel
+  script:
+    - bash autogen.sh
+    - ./configure
+    - make rpm
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - _build/RPMS/x86_64/*.rpm
+
+centos7-tests:
+  image: ${CI_REGISTRY}/dockers/ci/centos-build:7
+  stage: tests
+  dependencies:
+    - centos7-build
+  before_script:
+    - yum install -y _build/RPMS/x86_64/*.rpm
+    - yum install -y python2-pyasn1 python2-pyasn1-modules
+  script:
+    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - python tests/checker.py output/*
+
+
+centos8-build:
   image: ${CI_REGISTRY}/dockers/ci/centos-build:8
   stage: build
   before_script:
@@ -10,20 +37,20 @@ build:
   script:
     - bash autogen.sh
     - ./configure
-    - make
     - make rpm
   artifacts:
     expire_in: 2 days
     paths:
-      - leek
+      - _build/RPMS/x86_64/*.rpm
 
-tests:
+centos8-tests:
   image: ${CI_REGISTRY}/dockers/ci/centos-build:8
   stage: tests
   dependencies:
-    - build
+    - centos8-build
   before_script:
+    - dnf install -y _build/RPMS/x86_64/*.rpm
     - dnf install -y python3-pyasn1 python3-pyasn1-modules
   script:
-    - ./leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
     - python tests/checker.py output/*

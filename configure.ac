@@ -3,6 +3,7 @@ AC_PREREQ(2.60)
 AC_INIT([leek], [2.0.4], [morian@xdec.net])
 
 AC_PREFIX_DEFAULT([/usr])
+AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/leek.c])
 
 AM_INIT_AUTOMAKE([foreign -Wall

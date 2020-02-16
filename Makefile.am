@@ -70,11 +70,11 @@ leek_LDADD =          \
 
 RPM_BUILD_ROOT = @abs_top_builddir@/_build
 RPM_SOURCE_DIR = $(RPM_BUILD_ROOT)/SOURCES
-RPM_TARBALL    = $(RPM_BUILD_ROOT)/@PACKAGE@-@VERSION@.tar.bz2
+RPM_TARBALL    = $(RPM_SOURCE_DIR)/@PACKAGE@-@VERSION@.tar.bz2
 
 $(RPM_TARBALL): dist
-	$(MKDIR) --parents "$(RPM_SOURCE_DIR)"
-	$(CP) --archive "@PACKAGE@-@VERSION@.tar.bz2" $@
+	mkdir --parents "$(RPM_SOURCE_DIR)"
+	cp --archive "@PACKAGE@-@VERSION@.tar.bz2" $@
 
 PHONY += rpm
 rpm: $(RPM_TARBALL)
