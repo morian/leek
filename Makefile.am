@@ -78,6 +78,6 @@ $(RPM_TARBALL): dist
 
 PHONY += rpm
 rpm: $(RPM_TARBALL)
-	rpmbuild -bb --define "%_topdir $(RPM_BUILD_ROOT)" pkg/leek.spec
+	rpmbuild -bb --define "%_topdir $(RPM_BUILD_ROOT)" pkg/centos/leek.spec
 
 .PHONY: $(PHONY)

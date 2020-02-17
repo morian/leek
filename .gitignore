@@ -13,7 +13,7 @@ depcomp
 install-sh
 leek
 missing
-pkg/leek.spec
+pkg/centos/leek.spec
 src/.deps/
 src/.dirstamp
 src/*.o

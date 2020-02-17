@@ -55,7 +55,7 @@ AC_SUBST([LEEK_CFLAGS], "${LEEK_CFLAGS}")
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 	Makefile
-	pkg/leek.spec
+	pkg/centos/leek.spec
 ])
 
 AC_OUTPUT
