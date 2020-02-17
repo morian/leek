@@ -27,9 +27,11 @@ Special thanks and references:
 Requirements
 ------------
    - [OpenSSL]: For RSA generation and SHA1 rechecks (`libssl-dev` on Debian)
-   - [GCC] or [CLANG]: Works on both (checked on clang-3.9, works since gcc-5)
+   - [GCC] or [CLANG]: Works on both with any decent version.
+   - [Autotools] for build system (autoconf, automake, etc...)
 
 This code targets Linux systems but also works under [Windows Subsystem for Linux] with no noticeable performance drawback.
+
 
 
 Compilation & First run
@@ -38,18 +40,28 @@ Compilation & First run
 Default compilation produces a re-usable binary that you can transfer to any other Linux system, regardless of the underlying CPU support.
 
 ```sh
+bash autogen.sh
+./configure
 make
 ./leek --help
 ```
 
-You can also get a slight increase in performances building a machine-specific binary using additional `CFLAGS`.
-The generated binary will most likely not work on older machines though.
+
+Package building
+----------------
+
+### Centos
+
+Centos package build procedure also probably works on Fedora or RedHat but has not been tested on these distributions.
+You obviously need to install the required dependencies (OpenSSL, autotools, make, etc...) and any package that provides `rpmbuild` (generally `rpm-build`).
 
 ```sh
-CFLAGS=-march=native make
-./leek --help
+bash autogen.sh
+./configure
+make rpm
 ```
 
+You can then install these packages using `yum` or `dnf`, they are located in `_build/RPMS/x86_64/`.
 
 Options
 -------
@@ -69,6 +81,7 @@ Options
 	
 	Available implementations:
 	  OpenSSL
+	  UINT32
 	  SSSE3
 	  AVX2 (default)
 	  AVX512
@@ -114,8 +127,6 @@ Security
 All generated RSA keypairs are checked using standard OpenSSL methods.
 The only drawback I see from this way of generating .onion addresses is the unusual size of the public exponent e.
 This unusual size makes it obvious that you used Leek or any other similar software for .onion address generation.
-It also introduces a minor performance overhead for the initial connection from the clients.
-The bigger **popcnt(e)**, the longer it takes to establish a connection with your server.
 
 
 Performance
@@ -131,13 +142,14 @@ The underlying generation process is just a matter of luck and time.
 
 A few performance measurements (in MH/s) on different target CPUs.
 
-| CPU        | Base Freq.  | Core/Thread | OpenSSL |   SSSE3 |    AVX2 |  AVX512 |
-|------------|-------------|-------------|---------|---------|---------|---------|
-| Xeon 8124M |     3.00GHz |       8/16  |      47 |     165 |     365 |     850 |
-|   i7-7700K |     4.20GHz |        4/8  |      47 |     115 |     280 |     N/A |
-|   i7-6700  |     3.40GHz |        4/8  |      43 |     105 |     255 |     N/A |
-|   i5-4690S |     3.20GHz |        4/4  |      30 |      90 |     190 |     N/A |
-|   i7-4950U |     1.70GHz |        2/4  |      13 |      36 |      79 |     N/A |
+| CPU           | Base Freq.  | Core/Thread | OpenSSL |   SSSE3 |    AVX2 |  AVX512 |
+|---------------|-------------|-------------|---------|---------|---------|---------|
+| Ryzen 9 3900X |     3.80GHz |      12/24  |     130 |     325 |     617 |     N/A |
+|    Xeon 8124M |     3.00GHz |       8/16  |      47 |     165 |     365 |     850 |
+|      i7-7700K |     4.20GHz |        4/8  |      47 |     115 |     280 |     N/A |
+|      i5-4690S |     3.20GHz |        4/4  |      30 |      90 |     190 |     N/A |
+|      i7-4950U |     1.70GHz |        2/4  |      13 |      36 |      79 |     N/A |
+|       i7-6700 |     3.40GHz |        4/8  |      43 |     105 |     255 |     N/A |
 
 All performance measures are taken after an elapsed time of 60 seconds, using the following command:
 ```sh
@@ -145,7 +157,6 @@ All performance measures are taken after an elapsed time of 60 seconds, using th
 ```
 Performances are all measured using any available GCC version with default compile flags from Makefile.
 Leek uses all available logical cores by default.
-
 
 Coarse average time to generate a .onion with a given prefix length on a 150MH/s configuration:
 
@@ -205,6 +216,7 @@ No, please feel free to use a WSL or any kind of virtual machine.
    [Windows Subsystem for Linux]: <https://msdn.microsoft.com/en-us/commandline/wsl/about>
    [TOR]: <https://www.torproject.org>
    [OpenSSL]: <https://www.openssl.org>
+   [Autotools]: <https://www.gnu.org/software/automake/manual/html_node/Autotools-Introduction.html>
    [Linux]: <https://www.linux.org>
    [GCC]: <https://gcc.gnu.org>
    [CLANG]: <https://clang.llvm.org/>
