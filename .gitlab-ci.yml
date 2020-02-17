@@ -54,3 +54,31 @@ centos8-tests:
   script:
     - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
     - python tests/checker.py output/*
+
+
+debian10-build:
+  image: ${CI_REGISTRY}/dockers/ci/debian-build:10
+  stage: build
+  before_script:
+    - apt-get install -y libssl-dev
+  script:
+    - bash autogen.sh
+    - ./configure
+    - make deb
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - _build/DEBIAN/leek_*.deb
+      - _build/DEBIAN/leek-*.deb
+
+debian10-tests:
+  image: ${CI_REGISTRY}/dockers/ci/debian-build:10
+  stage: tests
+  dependencies:
+    - debian10-build
+  before_script:
+    - dpkg -i _build/DEBIAN/leek_*.deb
+    - apt-get install -y python3-pyasn1 python3-pyasn1-modules
+  script:
+    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - python3 tests/checker.py output/*

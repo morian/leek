@@ -1,0 +1,17 @@
+Source: leek
+Section: net
+Priority: optional
+Maintainer: Romain Bezut <morian@xdec.net>
+Build-Depends: debhelper,
+               autoconf,
+               automake,
+               libssl-dev
+Homepage: https://github.com/morian/leek
+Vcs-Git: https://github.com/morian/leek
+
+Package: leek
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: SSE/AVX2/AVX512 onion address generator
+ Leek is an onion domain key generator using SIMD instruction sets provided
+ by x86 processors (SSSE3, AVX2, AVX512).

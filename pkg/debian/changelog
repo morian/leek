@@ -1,0 +1,6 @@
+leek (2.0.4-1) unstable; urgency=low
+
+  * Add support for OpenSSL1.1
+  * Initial support for debian packages.
+
+ -- Romain Bezut <morian@xdec.net>  Tue, 18 Feb 2020 00:24:00 +0100

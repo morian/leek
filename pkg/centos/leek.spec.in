@@ -10,8 +10,8 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires: openssl-devel
 
 %description
-Leek is a onion domain name generator using SIMD instruction sets provided
-by x86 processors (SSE, AVX2, AVX512).
+Leek is an onion domain key generator using SIMD instruction sets provided
+by x86 processors (SSSE3, AVX2, AVX512).
 
 %prep
 %setup -q

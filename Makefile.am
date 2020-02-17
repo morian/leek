@@ -68,16 +68,27 @@ leek_LDADD =          \
 	${PTHREAD_LIBS}     \
 	-lm
 
+DEB_BUILD_ROOT = @abs_top_builddir@/_build/DEBIAN
 RPM_BUILD_ROOT = @abs_top_builddir@/_build
 RPM_SOURCE_DIR = $(RPM_BUILD_ROOT)/SOURCES
 RPM_TARBALL    = $(RPM_SOURCE_DIR)/@PACKAGE@-@VERSION@.tar.bz2
+PKG_DIRNAME    = @PACKAGE@-@VERSION@
 
 $(RPM_TARBALL): dist
 	mkdir --parents "$(RPM_SOURCE_DIR)"
-	cp --archive "@PACKAGE@-@VERSION@.tar.bz2" $@
+	cp --archive "${PKG_DIRNAME}.tar.bz2" $@
 
 PHONY += rpm
 rpm: $(RPM_TARBALL)
 	rpmbuild -bb --define "%_topdir $(RPM_BUILD_ROOT)" pkg/centos/leek.spec
+
+$(DEB_BUILD_ROOT): dist
+	mkdir -p "$@/${PKG_DIRNAME}"
+	tar --directory="$@" -xf "${PKG_DIRNAME}.tar.bz2"
+	cp --archive pkg/debian "$@/${PKG_DIRNAME}/"
+
+PHONY += deb
+deb: $(DEB_BUILD_ROOT)
+	(cd "$</${PKG_DIRNAME}/" && debuild -i -us -uc -b)
 
 .PHONY: $(PHONY)
