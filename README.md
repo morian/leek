@@ -1,7 +1,6 @@
 Leek
 ====
 
-[![Travis Status][travis_img]][travis_url]
 [![MIT License][license_img]][license_url]
 
 
@@ -52,7 +51,7 @@ Package building
 
 ### Centos
 
-Centos package build procedure also probably works on Fedora or RedHat but has not been tested on these distributions.
+Centos package build procedure also probably works on Fedora or RedHat but has not been tested on these distributions (only Centos7 and Centos8).
 You obviously need to install the required dependencies (OpenSSL, autotools, make, etc...) and any package that provides `rpmbuild` (generally `rpm-build`).
 
 ```sh
@@ -235,8 +234,6 @@ No, please feel free to use a WSL or any kind of virtual machine.
    [CLANG]: <https://clang.llvm.org/>
    [eschalot]: <https://github.com/ReclaimYourPrivacy/eschalot>
    [shallot]: <https://github.com/katmagic/Shallot>
-   [travis_img]: <https://travis-ci.org/morian/leek.svg?branch=master>
-   [travis_url]: <https://travis-ci.org/morian/leek>
    [license_img]: <https://img.shields.io/badge/license-MIT-blue.svg>
    [license_url]: <https://github.com/morian/leek/blob/master/LICENSE>
    [AVX512 Ternary functions]: <http://0x80.pl/articles/avx512-ternary-functions.html>
