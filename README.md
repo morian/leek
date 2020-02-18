@@ -63,6 +63,19 @@ make rpm
 
 You can then install these packages using `yum` or `dnf`, they are located in `_build/RPMS/x86_64/`.
 
+
+### Debian
+
+Debian package build procedure has been tested on Debian10 but would probably also work on other debian forks.
+Before you can build the debian package make sure to install all required tools such as `devscripts`, `lintian`, `build-essential`, `pkg-config`.
+
+```sh
+bash autogen.sh
+./configure
+make deb
+```
+
+
 Options
 -------
 	Usage: ./leek [OPTIONS]
