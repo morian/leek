@@ -207,10 +207,36 @@ static int leek_terminal_epoll_add(int epfd, int fd, leek_epoll_callback_t callb
  * This is fairly not important in our case as the number of events
  * is very very low (except if you choose very small prefix). */
 #define LEEK_TERMINAL_LOOP_ENTRIES     4
+struct leek_epoll_entry {
+	leek_epoll_callback_t callback;
+	bool condition;
+	int fd;
+};
+
 
 /* stdin + evenfd + timerfd */
 static int leek_terminal_loop(int fd_timeout, int fd_stats)
 {
+	struct leek_epoll_entry eentries[] = {
+		/* Add epoll handler for STDIN */
+		{
+			.callback = leek_terminal_handle_stdin,
+			.condition = (leek.terminal.flags & LEEK_TERMINAL_IS_TTY),
+			.fd = STDIN_FILENO,
+		},
+		/* Add epoll handler for EventFD */
+		{
+			.callback = leek_terminal_handle_event,
+			.condition = true,
+			.fd = leek.terminal.efd,
+		},
+		/* Add epoll handler for timeout if needed */
+		{
+			.callback = leek_terminal_handle_timeout,
+			.condition = (fd_timeout >= 0),
+			.fd = fd_timeout,
+		},
+	};
 	int epfd;
 	int ret;
 
@@ -219,23 +245,12 @@ static int leek_terminal_loop(int fd_timeout, int fd_stats)
 		goto out;
 	epfd = ret;
 
-	/* Add epoll handler for STDIN */
-	if (leek.terminal.flags & LEEK_TERMINAL_IS_TTY) {
-		ret = leek_terminal_epoll_add(epfd, STDIN_FILENO, leek_terminal_handle_stdin);
-		if (ret < 0)
-			goto close_epfd;
-	}
-
-	/* Add epoll handler for EventFD */
-	ret = leek_terminal_epoll_add(epfd, leek.terminal.efd, leek_terminal_handle_event);
-	if (ret < 0)
-		goto close_epfd;
-
-	/* Add epoll handler for timeout if needed */
-	if (fd_timeout >= 0) {
-		ret = leek_terminal_epoll_add(epfd, fd_timeout, leek_terminal_handle_timeout);
-		if (ret < 0)
-			goto close_epfd;
+	for (unsigned int i = 0; i < ARRAY_SIZE(eentries); ++i) {
+		if (eentries[i].condition) {
+			ret = leek_terminal_epoll_add(epfd, eentries[i].fd, eentries[i].callback);
+			if (ret < 0)
+				goto close_epfd;
+		}
 	}
 
 	/* Main terminal thread is now running */

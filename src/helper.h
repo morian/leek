@@ -26,6 +26,11 @@
 # define likely(x)                     __builtin_expect(!!(x), 1)
 # define unlikely(x)                   __builtin_expect(!!(x), 0)
 
+# ifndef ARRAY_SIZE
+#  define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
+# endif
+
+
 /* Create result directory if needed */
 int leek_result_dir_init(void);
 
