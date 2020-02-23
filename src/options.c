@@ -186,7 +186,7 @@ int leek_options_parse(int argc, char *argv[])
 		unsigned long uval;
 		int c;
 
-		c = getopt_long(argc, argv, "l:d:p:i:o:I:t:s::vh", leek_long_options, NULL);
+		c = getopt_long(argc, argv, "l:d:r:p:i:o:I:t:s::vh", leek_long_options, NULL);
 		if (c == -1)
 			break;
 

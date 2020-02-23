@@ -101,7 +101,7 @@ static void leek_terminal_usage_display(void)
 }
 
 
-static int leek_terminal_handle_stdin(void)
+static int leek_terminal_handle_stdin(int fd)
 {
 	int c = getchar();
 	int verbose = 0;
@@ -137,14 +137,14 @@ static int leek_terminal_handle_stdin(void)
 }
 
 
-static int leek_terminal_handle_event(void)
+static int leek_terminal_handle_event(int fd)
 {
 	bool verbose = !!(leek.options.flags & LEEK_OPTION_VERBOSE);
 	unsigned int events;
 	eventfd_t counter;
 	int ret;
 
-	ret = eventfd_read(leek.terminal.efd, &counter);
+	ret = eventfd_read(fd, &counter);
 	if (ret < 0) {
 		fprintf(stderr, "error: eventfd_read: %s\n", strerror(errno));
 		goto out;
@@ -166,6 +166,9 @@ static int leek_terminal_handle_event(void)
 		}
 	}
 
+	if (events & LEEK_EVENT_SHOW_STATS)
+		leek_status_display(leek.options.flags & LEEK_OPTION_VERBOSE);
+
 	if (events & LEEK_EVENT_SHOW_RESULTS)
 		leek_result_found_display(true);
 
@@ -179,23 +182,44 @@ out:
 	return ret;
 }
 
-static int leek_terminal_handle_timeout(void)
+static int leek_terminal_handle_timeout(int fd)
 {
 	printf("[+] Exiting because duration timer expired.\n");
 	__sync_and_and_fetch(&leek.terminal.flags, ~LEEK_TERMINAL_FLAGS_RUNNING);
 	return 0;
 }
 
-typedef int (*leek_epoll_callback_t)(void);
+static int leek_terminal_handle_stats(int fd)
+{
+	uint64_t expirations;
+	uint8_t *buffer = (uint8_t *) &expirations;
+	unsigned long size = 0;
+	ssize_t ret;
 
-static int leek_terminal_epoll_add(int epfd, int fd, leek_epoll_callback_t callback)
+	while (size < sizeof expirations) {
+		ret = read(fd, buffer + size, sizeof(expirations) - size);
+		if (ret < 0) {
+			fprintf(stderr, "error: read on timer_fd: %s\n", strerror(errno));
+			goto out;
+		}
+		size += ret;
+	}
+
+	/* This should be handled by event handler, notify it */
+	leek_events_notify(LEEK_EVENT_SHOW_STATS);
+out:
+	return ret;
+}
+
+typedef int (*leek_epoll_callback_t)(int fd);
+
+static int leek_terminal_epoll_add(int epfd, int fd, int idx)
 {
 	struct epoll_event event;
 	int ret;
 
 	event.events = EPOLLIN;
-	event.data.fd = fd;
-	event.data.ptr = callback;
+	event.data.u32 = idx;
 
 	ret = epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &event);
 	if (ret < 0)
@@ -236,6 +260,12 @@ static int leek_terminal_loop(int fd_timeout, int fd_stats)
 			.condition = (fd_timeout >= 0),
 			.fd = fd_timeout,
 		},
+		/* Add epoll handler for statistics display */
+		{
+			.callback = leek_terminal_handle_stats,
+			.condition = (fd_stats >= 0),
+			.fd = fd_stats,
+		},
 	};
 	int epfd;
 	int ret;
@@ -247,7 +277,7 @@ static int leek_terminal_loop(int fd_timeout, int fd_stats)
 
 	for (unsigned int i = 0; i < ARRAY_SIZE(eentries); ++i) {
 		if (eentries[i].condition) {
-			ret = leek_terminal_epoll_add(epfd, eentries[i].fd, eentries[i].callback);
+			ret = leek_terminal_epoll_add(epfd, eentries[i].fd, i);
 			if (ret < 0)
 				goto close_epfd;
 		}
@@ -257,8 +287,9 @@ static int leek_terminal_loop(int fd_timeout, int fd_stats)
 	__sync_fetch_and_or(&leek.terminal.flags, LEEK_TERMINAL_FLAGS_RUNNING);
 
 	while (leek.terminal.flags & LEEK_TERMINAL_FLAGS_RUNNING) {
-		leek_epoll_callback_t callback;
 		struct epoll_event events[LEEK_TERMINAL_LOOP_ENTRIES];
+		leek_epoll_callback_t callback;
+		int count;
 
 		leek_terminal_prompt_show();
 		ret = epoll_wait(epfd, events, LEEK_TERMINAL_LOOP_ENTRIES, -1);
@@ -271,14 +302,17 @@ static int leek_terminal_loop(int fd_timeout, int fd_stats)
 			fprintf(stderr, "error: epoll: %s\n", strerror(errno));
 			goto close_epfd;
 		}
+		count = ret;
 
-		for (int i = 0; i < ret; ++i) {
-			callback = events[i].data.ptr;
+		for (int i = 0; i < count; ++i) {
+			unsigned int idx = events[i].data.u32;
+
+			callback = eentries[idx].callback;
 
 			/* Any error in any callback is considered fatal for
 			 * the application. While dangerous it helps to ensure
 			 * that we will not work in weird conditions. */
-			ret = callback();
+			ret = callback(eentries[idx].fd);
 			if (ret < 0)
 				goto close_epfd;
 		}
@@ -292,7 +326,7 @@ out:
 }
 
 
-static int leek_terminal_timer(unsigned long duration)
+static int leek_terminal_timer(unsigned long duration, bool repeat)
 {
 	struct itimerspec its;
 	int timer_fd;
@@ -309,6 +343,11 @@ static int leek_terminal_timer(unsigned long duration)
 	its.it_value.tv_sec = duration;
 	its.it_value.tv_nsec = 0;
 
+	if (repeat) {
+		its.it_interval.tv_sec = duration;
+		its.it_interval.tv_nsec = 0;
+	}
+
 	ret = timerfd_settime(timer_fd, 0, &its, NULL);
 	if (ret < 0) {
 		fprintf(stderr, "error: timerfd_settime: %s\n", strerror(errno));
@@ -322,6 +361,17 @@ out:
 error_settime:
 	close(timer_fd);
 	goto out;
+}
+
+
+static int leek_terminal_timeout(unsigned long duration)
+{
+	return leek_terminal_timer(duration, false);
+}
+
+static int leek_terminal_interval(unsigned long duration)
+{
+	return leek_terminal_timer(duration, true);
 }
 
 
@@ -442,7 +492,7 @@ int leek_terminal_runner(void)
 	if (leek.options.duration) {
 		/* This timer is used to tell the loop when it should
 		 * stops its activities (when set). */
-		ret = leek_terminal_timer(leek.options.duration);
+		ret = leek_terminal_timeout(leek.options.duration);
 		if (ret < 0)
 			goto sig_restore;
 		fd_duration = ret;
@@ -451,7 +501,7 @@ int leek_terminal_runner(void)
 	if (leek.options.refresh) {
 		/* This timer is used to tell the loop when it should
 		 * display statistics. */
-		ret = leek_terminal_timer(leek.options.refresh);
+		ret = leek_terminal_interval(leek.options.refresh);
 		if (ret < 0)
 			goto sig_restore;
 		fd_refresh = ret;

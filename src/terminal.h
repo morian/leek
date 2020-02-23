@@ -32,6 +32,8 @@ enum {
 	LEEK_EVENT_NEW_RESULT           = (1 << 17),
 	/* We are told to dump the full list of results */
 	LEEK_EVENT_SHOW_RESULTS         = (1 << 18),
+	/* We are told to show statistics */
+	LEEK_EVENT_SHOW_STATS           = (1 << 19),
 
 	/* All possible events received by the main thread */
 	LEEK_EVENTS_ALL                 = 0xffff0000,
