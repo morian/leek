@@ -209,7 +209,7 @@ static int leek_terminal_epoll_add(int epfd, int fd, leek_epoll_callback_t callb
 #define LEEK_TERMINAL_LOOP_ENTRIES     4
 
 /* stdin + evenfd + timerfd */
-static int leek_terminal_loop(int timer_fd)
+static int leek_terminal_loop(int fd_timeout, int fd_stats)
 {
 	int epfd;
 	int ret;
@@ -232,8 +232,8 @@ static int leek_terminal_loop(int timer_fd)
 		goto close_epfd;
 
 	/* Add epoll handler for timeout if needed */
-	if (timer_fd >= 0) {
-		ret = leek_terminal_epoll_add(epfd, timer_fd, leek_terminal_handle_timeout);
+	if (fd_timeout >= 0) {
+		ret = leek_terminal_epoll_add(epfd, fd_timeout, leek_terminal_handle_timeout);
 		if (ret < 0)
 			goto close_epfd;
 	}
@@ -405,7 +405,8 @@ error_sigact:
  */
 int leek_terminal_runner(void)
 {
-	int timer_fd = -1;
+	int fd_duration = -1;
+	int fd_refresh = -1;
 	int ret;
 
 	ret = leek_terminal_set();
@@ -429,16 +430,27 @@ int leek_terminal_runner(void)
 		ret = leek_terminal_timer(leek.options.duration);
 		if (ret < 0)
 			goto sig_restore;
-		timer_fd = ret;
+		fd_duration = ret;
+	}
+
+	if (leek.options.refresh) {
+		/* This timer is used to tell the loop when it should
+		 * display statistics. */
+		ret = leek_terminal_timer(leek.options.refresh);
+		if (ret < 0)
+			goto sig_restore;
+		fd_refresh = ret;
 	}
 
 	/* This is the main event loop that just waits for signals
 	 * from either the sighandler, keyboard, timers or events
 	 * from worker threads. */
-	ret = leek_terminal_loop(timer_fd);
+	ret = leek_terminal_loop(fd_duration, fd_refresh);
 
-	if (timer_fd >= 0)
-		close(timer_fd);
+	if (fd_duration >= 0)
+		close(fd_duration);
+	if (fd_refresh >= 0)
+		close(fd_refresh);
 sig_restore:
 	leek_signal_restore();
 term_restore:
