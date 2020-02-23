@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>
+#include <sys/ttydefaults.h>
 #include <unistd.h>
 
 #include "leek.h"
@@ -94,6 +95,7 @@ static void leek_terminal_usage_display(void)
 	printf("> F   show last results with detailed keys.\n");
 	printf("> s   show attack status summary.\n");
 	printf("> S   show detailed attack status.\n");
+	printf("> q   quit leek (finishes current runs).\n");
 	printf("> h   show this help menu.\n");
 	printf("\n");
 }
@@ -105,6 +107,7 @@ static int leek_terminal_handle_stdin(void)
 	int verbose = 0;
 
 	switch (c) {
+		case CEOF:
 		case 'q':
 			printf("[+] Exit requested received from terminal input.\n");
 			__sync_and_and_fetch(&leek.terminal.flags, ~LEEK_TERMINAL_FLAGS_RUNNING);
