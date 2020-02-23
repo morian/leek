@@ -17,6 +17,7 @@ struct leek_options {
 	unsigned int threads;       /* Number of running threads */
 	unsigned int stop_count;    /* Stop after # successes (with LEEK_FLAG_STOP) */
 	unsigned long duration;     /* For how long we shall run */
+	unsigned long refresh;      /* How often to refresh stats */
 
 	unsigned int len_min;       /* Minimum prefix size */
 	unsigned int len_max;       /* Maximum prefix size */

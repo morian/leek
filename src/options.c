@@ -14,6 +14,7 @@ static const struct option leek_long_options[] = {
 	{"output",     1, 0, 'o'},
 	{"length",     1, 0, 'l'},
 	{"duration",   1, 0, 'd'},
+	{"refresh",    1, 0, 'r'},
 	{"threads",    1, 0, 't'},
 	{"impl",       1, 0, 'I'},
 	{"stop",       2, 0, 's'},
@@ -34,6 +35,7 @@ static void leek_usage_show(FILE *fp, const char *prog_name)
 	fprintf(fp, " -l, --length=N:M   length filter for dictionary attack [%u-%u].\n",
 	        LEEK_PREFIX_LENGTH_MIN, LEEK_PREFIX_LENGTH_MAX);
 	fprintf(fp, " -d, --duration     how long to run (in seconds, default is infinite).\n");
+	fprintf(fp, " -r, --refresh      how often to auto-refresh status (default is disabled).\n");
 	fprintf(fp, " -t, --threads=#    worker threads count (default is all cores).\n");
 	fprintf(fp, " -I, --impl=#       select implementation (see bellow).\n");
 	fprintf(fp, " -s, --stop(=1)     stop processing after # success (default is infinite).\n");
@@ -213,6 +215,15 @@ int leek_options_parse(int argc, char *argv[])
 					goto out;
 				}
 				leek.options.duration = uval;
+				break;
+
+			case 'r':
+				uval = leek_options_scan_duration(optarg);
+				if (!uval) {
+					fprintf(stderr, "error: invalid refresh duration specificed (accepted suffixes are s,m,h,d,w).\n");
+					goto out;
+				}
+				leek.options.refresh = uval;
 				break;
 
 			case 'o':
