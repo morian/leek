@@ -1,9 +1,9 @@
 #include <errno.h>
-#include <poll.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <signal.h>
+#include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>
 #include <sys/ttydefaults.h>
@@ -179,63 +179,99 @@ out:
 	return ret;
 }
 
-
-/* stdin + evenfd + timerfd */
-#define LEEK_TERMINAL_POLL_COUNT     3
-
-static int leek_terminal_loop(int timer_fd)
+static int leek_terminal_handle_timeout(void)
 {
-	struct pollfd pfds[LEEK_TERMINAL_POLL_COUNT];
+	printf("[+] Exiting because duration timer expired.\n");
+	__sync_and_and_fetch(&leek.terminal.flags, ~LEEK_TERMINAL_FLAGS_RUNNING);
+	return 0;
+}
+
+typedef int (*leek_epoll_callback_t)(void);
+
+static int leek_terminal_epoll_add(int epfd, int fd, leek_epoll_callback_t callback)
+{
+	struct epoll_event event;
 	int ret;
 
-	/* stdin is our first polled fd */
-	pfds[0].fd = (leek.terminal.flags & LEEK_TERMINAL_IS_TTY)
-	           ? STDIN_FILENO : -1;
-	pfds[0].events = POLLIN;
+	event.events = EPOLLIN;
+	event.data.fd = fd;
+	event.data.ptr = callback;
 
-	/* eventfd is our second polled fd */
-	pfds[1].fd = leek.terminal.efd;
-	pfds[1].events = POLLIN;
+	ret = epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &event);
+	if (ret < 0)
+		fprintf(stderr, "epoll_ctl_add: %s\n", strerror(errno));
+	return ret;
+}
 
-	/* timerfd (if applicable) is our last polled fd */
-	pfds[2].fd = timer_fd;
-	pfds[2].events = POLLIN;
+/* Number of events we are going to handle at the same time.
+ * This is fairly not important in our case as the number of events
+ * is very very low (except if you choose very small prefix). */
+#define LEEK_TERMINAL_LOOP_ENTRIES     4
+
+/* stdin + evenfd + timerfd */
+static int leek_terminal_loop(int timer_fd)
+{
+	int epfd;
+	int ret;
+
+	ret = epoll_create1(EPOLL_CLOEXEC);
+	if (ret < 0)
+		goto out;
+	epfd = ret;
+
+	/* Add epoll handler for STDIN */
+	if (leek.terminal.flags & LEEK_TERMINAL_IS_TTY) {
+		ret = leek_terminal_epoll_add(epfd, STDIN_FILENO, leek_terminal_handle_stdin);
+		if (ret < 0)
+			goto close_epfd;
+	}
+
+	/* Add epoll handler for EventFD */
+	ret = leek_terminal_epoll_add(epfd, leek.terminal.efd, leek_terminal_handle_event);
+	if (ret < 0)
+		goto close_epfd;
+
+	/* Add epoll handler for timeout if needed */
+	if (timer_fd >= 0) {
+		ret = leek_terminal_epoll_add(epfd, timer_fd, leek_terminal_handle_timeout);
+		if (ret < 0)
+			goto close_epfd;
+	}
 
 	/* Main terminal thread is now running */
 	__sync_fetch_and_or(&leek.terminal.flags, LEEK_TERMINAL_FLAGS_RUNNING);
 
 	while (leek.terminal.flags & LEEK_TERMINAL_FLAGS_RUNNING) {
+		leek_epoll_callback_t callback;
+		struct epoll_event events[LEEK_TERMINAL_LOOP_ENTRIES];
+
 		leek_terminal_prompt_show();
-		ret = poll(pfds, LEEK_TERMINAL_POLL_COUNT, -1);
+		ret = epoll_wait(epfd, events, LEEK_TERMINAL_LOOP_ENTRIES, -1);
 		leek_terminal_prompt_clear();
 
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
 
-			fprintf(stderr, "error: poll: %s\n", strerror(errno));
-			goto out;
+			fprintf(stderr, "error: epoll: %s\n", strerror(errno));
+			goto close_epfd;
 		}
 
-		if (pfds[0].revents & POLLIN) {
-			ret = leek_terminal_handle_stdin();
+		for (int i = 0; i < ret; ++i) {
+			callback = events[i].data.ptr;
+
+			/* Any error in any callback is considered fatal for
+			 * the application. While dangerous it helps to ensure
+			 * that we will not work in weird conditions. */
+			ret = callback();
 			if (ret < 0)
-				goto out;
-		}
-
-		if (pfds[1].revents & POLLIN) {
-			ret = leek_terminal_handle_event();
-			if (ret < 0)
-				goto out;
-		}
-
-		if (pfds[2].revents & POLLIN) {
-			printf("[+] Exiting because duration timer expired.\n");
-			__sync_and_and_fetch(&leek.terminal.flags, ~LEEK_TERMINAL_FLAGS_RUNNING);
+				goto close_epfd;
 		}
 	}
 
 	ret = 0;
+close_epfd:
+	close(epfd);
 out:
 	return ret;
 }
