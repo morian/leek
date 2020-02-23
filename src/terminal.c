@@ -261,12 +261,16 @@ static int leek_terminal_timer(unsigned long duration)
 	ret = timerfd_settime(timer_fd, 0, &its, NULL);
 	if (ret < 0) {
 		fprintf(stderr, "error: timerfd_settime: %s\n", strerror(errno));
-		goto out;
+		goto error_settime;
 	}
 
 	ret = timer_fd;
 out:
 	return ret;
+
+error_settime:
+	close(timer_fd);
+	goto out;
 }
 
 
@@ -281,48 +285,6 @@ static void leek_signal_result_handler(int signal)
 {
 	leek_events_notify(LEEK_EVENT_SHOW_RESULTS);
 	(void) signal;
-}
-
-
-static int leek_signal_setup(void)
-{
-	struct sigaction sigusr1_act;
-	struct sigaction sigterm_act;
-	struct sigaction sigint_act;
-	int ret;
-
-	memset(&sigusr1_act, 0, sizeof sigterm_act);
-	sigusr1_act.sa_flags = 0;
-	sigusr1_act.sa_handler = &leek_signal_result_handler;
-
-	memset(&sigterm_act, 0, sizeof sigterm_act);
-	sigterm_act.sa_flags = 0;
-	sigterm_act.sa_handler = &leek_signal_exit_handler;
-
-	memset(&sigint_act, 0, sizeof sigint_act);
-	sigint_act.sa_flags = 0;
-	sigint_act.sa_handler = &leek_signal_exit_handler;
-
-	ret = sigaction(SIGUSR1, &sigusr1_act, NULL);
-	if (ret < 0) {
-		fprintf(stderr, "error: sigaction: %s\n", strerror(errno));
-		goto out;
-	}
-
-	ret = sigaction(SIGINT, &sigint_act, NULL);
-	if (ret < 0) {
-		fprintf(stderr, "error: sigaction: %s\n", strerror(errno));
-		goto out;
-	}
-
-	ret = sigaction(SIGTERM, &sigterm_act, NULL);
-	if (ret < 0) {
-		fprintf(stderr, "error: sigaction: %s\n", strerror(errno));
-		goto out;
-	}
-
-out:
-	return ret;
 }
 
 
@@ -350,6 +312,52 @@ static int leek_signal_restore(void)
 		fprintf(stderr, "error: sigaction: %s\n", strerror(errno));
 
 	return (ret_u < 0 || ret_i < 0 || ret_t < 0) ? -1 : 0;
+}
+
+
+static int leek_signal_setup(void)
+{
+	struct sigaction sigusr1_act;
+	struct sigaction sigterm_act;
+	struct sigaction sigint_act;
+	int ret;
+
+	memset(&sigusr1_act, 0, sizeof sigterm_act);
+	sigusr1_act.sa_flags = 0;
+	sigusr1_act.sa_handler = &leek_signal_result_handler;
+
+	memset(&sigterm_act, 0, sizeof sigterm_act);
+	sigterm_act.sa_flags = 0;
+	sigterm_act.sa_handler = &leek_signal_exit_handler;
+
+	memset(&sigint_act, 0, sizeof sigint_act);
+	sigint_act.sa_flags = 0;
+	sigint_act.sa_handler = &leek_signal_exit_handler;
+
+	ret = sigaction(SIGUSR1, &sigusr1_act, NULL);
+	if (ret < 0) {
+		fprintf(stderr, "error: sigaction: %s\n", strerror(errno));
+		goto error_sigact;
+	}
+
+	ret = sigaction(SIGINT, &sigint_act, NULL);
+	if (ret < 0) {
+		fprintf(stderr, "error: sigaction: %s\n", strerror(errno));
+		goto error_sigact;
+	}
+
+	ret = sigaction(SIGTERM, &sigterm_act, NULL);
+	if (ret < 0) {
+		fprintf(stderr, "error: sigaction: %s\n", strerror(errno));
+		goto error_sigact;
+	}
+
+out:
+	return ret;
+
+error_sigact:
+	leek_signal_restore();
+	goto out;
 }
 
 
