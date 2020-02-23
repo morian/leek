@@ -183,7 +183,7 @@ out:
 /* stdin + evenfd + timerfd */
 #define LEEK_TERMINAL_POLL_COUNT     3
 
-static int leek_terminal_poll(int timer_fd)
+static int leek_terminal_loop(int timer_fd)
 {
 	struct pollfd pfds[LEEK_TERMINAL_POLL_COUNT];
 	int ret;
@@ -361,6 +361,12 @@ error_sigact:
 }
 
 
+/**
+ * This is the main function after all workers
+ * have started and we initialized everything.
+ * Nothing is executed after us except for exit
+ * handlers.
+ */
 int leek_terminal_runner(void)
 {
 	int timer_fd = -1;
@@ -370,18 +376,30 @@ int leek_terminal_runner(void)
 	if (ret < 0)
 		goto out;
 
+	/* From now terminal is set in canonical mode (if on tty).
+	 * Signals are not yet registered so we can leave user
+	 * terminal in a bad shape when receiving signals. */
+
 	ret = leek_signal_setup();
 	if (ret < 0)
 		goto term_restore;
 
+	/* From now we can handle signals and create events on
+	 * event fd queue from outside of the process. */
+
 	if (leek.options.duration) {
+		/* This timer is used to tell the loop when it should
+		 * stops its activities (when set). */
 		ret = leek_terminal_timer(leek.options.duration);
 		if (ret < 0)
 			goto sig_restore;
 		timer_fd = ret;
 	}
 
-	ret = leek_terminal_poll(timer_fd);
+	/* This is the main event loop that just waits for signals
+	 * from either the sighandler, keyboard, timers or events
+	 * from worker threads. */
+	ret = leek_terminal_loop(timer_fd);
 
 	if (timer_fd >= 0)
 		close(timer_fd);
