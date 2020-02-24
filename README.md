@@ -84,6 +84,7 @@ Options
 	 -o, --output       output directory (default prints on stdout).
 	 -l, --length=N:M   length filter for dictionary attack [4-16].
 	 -d, --duration     how long to run (in seconds, default is infinite).
+	 -r, --refresh      how often to auto-refresh status (default is disabled).
 	 -t, --threads=#    worker threads count (default is all cores).
 	 -I, --impl=#       select implementation (see bellow).
 	 -s, --stop(=1)     stop processing after # success (default is infinite).
