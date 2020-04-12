@@ -49,6 +49,8 @@ make
 Package building
 ----------------
 
+See also our mirror of [binary packages] for debian and centos.
+
 ### Centos
 
 Centos package build procedure also probably works on Fedora or RedHat but has not been tested on these distributions (only Centos7 and Centos8).
@@ -240,3 +242,4 @@ No, please feel free to use a WSL or any kind of virtual machine.
    [AVX512 Ternary functions]: <http://0x80.pl/articles/avx512-ternary-functions.html>
    [Intel Intrinsics Guide]: <https://software.intel.com/sites/landingpage/IntrinsicsGuide/>
    [0x80.pl]: <http://0x80.pl>
+   [binary packages]: <https://dist.xdec.net/leek/>
