@@ -5,11 +5,6 @@ PHONY =
 AM_MAKEFLAGS = --no-print-directory
 ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
-AM_CFLAGS =           \
-	${LEEK_CFLAGS}      \
-	${OPENSSL_CFLAGS}   \
-	${PTHREAD_CFLAGS}
-
 bin_PROGRAMS = leek
 leek_SOURCES =        \
 	src/hashes.c        \
@@ -46,27 +41,22 @@ if HAVE_SIMD_SSSE3
 leek_SOURCES +=       \
 	src/impl_ssse3.c    \
 	src/impl_ssse3.h
-src/impl_ssse3.${OBJEXT}: CFLAGS += -mssse3
+src/impl_ssse3.${OBJEXT}: CFLAGS+=-mssse3
 endif
 
 if HAVE_SIMD_AVX2
 leek_SOURCES +=       \
 	src/impl_avx2.c     \
 	src/impl_avx2.h
-src/impl_avx2.$(OBJEXT): CFLAGS += -mavx2
+src/impl_avx2.$(OBJEXT): CFLAGS+=-mavx2
 endif
 
 if HAVE_SIMD_AVX512
 leek_SOURCES +=       \
 	src/impl_avx512.c   \
 	src/impl_avx512.h
-src/impl_avx512.$(OBJEXT): CFLAGS += -mavx512bw
+src/impl_avx512.$(OBJEXT): CFLAGS+=-mavx512bw
 endif
-
-leek_LDADD =          \
-	${OPENSSL_LIBS}     \
-	${PTHREAD_LIBS}     \
-	-lm
 
 DEB_BUILD_ROOT = @abs_top_builddir@/_build/DEBIAN
 RPM_BUILD_ROOT = @abs_top_builddir@/_build
