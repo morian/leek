@@ -192,7 +192,7 @@ void leek_result_new_display(bool verbose)
 				item = item->next;
 				count++;
 			}
-		} while (!(item->flags & LEEK_RESULT_FLAG_DISPLAYED));
+		} while (item && !(item->flags & LEEK_RESULT_FLAG_DISPLAYED));
 
 		if (count > 1)
 			printf("\n");
