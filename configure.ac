@@ -43,7 +43,7 @@ AX_CHECK_COMPILE_FLAG([-Wnormalized], [AX_APPEND_FLAG([-Wnormalized])], [])
 AX_CHECK_COMPILE_FLAG([-Wnull-dereference], [AX_APPEND_FLAG([-Wnull-dereference])], [])
 
 CFLAGS+=" ${OPENSSL_CFLAGS} ${PTHREAD_CFLAGS}"
-LDFLAGS+=" ${OPENSSL_LIBS} ${PTHREAD_LIBS} -lm"
+LIBS="${OPENSSL_LIBS} ${PTHREAD_LIBS} -lm"
 
 
 AX_CHECK_COMPILE_FLAG([-mssse3], [
@@ -83,5 +83,5 @@ AC_MSG_RESULT([
 
     compiler:      ${CC}
     cflags:        ${CFLAGS}
-    ldflags:       ${LDFLAGS}
+    ldflags:       ${LDFLAGS} ${LIBS}
 ])
