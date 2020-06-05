@@ -1,4 +1,4 @@
-leek (2.0.5-1) unstable; urgency=low
+leek (2.0.5-1) stable; urgency=low
 
   * Move to epoll for main event loop.
   * Add support for Ctrl-D (alias for 'quit').

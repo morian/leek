@@ -82,3 +82,30 @@ debian10-tests:
   script:
     - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
     - python3 tests/checker.py output/*
+
+ubuntu2004-build:
+  image: ${CI_REGISTRY}/dockers/ci/ubuntu-build:20.04
+  stage: build
+  before_script:
+    - apt-get install -y libssl-dev
+  script:
+    - bash autogen.sh
+    - ./configure
+    - make deb
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - _build/DEBIAN/leek_*.deb
+      - _build/DEBIAN/leek-*.ddeb
+
+ubuntu2004-tests:
+  image: ${CI_REGISTRY}/dockers/ci/ubuntu-build:20.04
+  stage: tests
+  dependencies:
+    - ubuntu2004-build
+  before_script:
+    - dpkg -i _build/DEBIAN/leek_*.deb
+    - apt-get install -y python3-pyasn1 python3-pyasn1-modules
+  script:
+    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - python3 tests/checker.py output/*
