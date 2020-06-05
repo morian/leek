@@ -25,7 +25,7 @@ Special thanks and references:
 
 Requirements
 ------------
-   - [OpenSSL]: For RSA generation and SHA1 rechecks (`libssl-dev` on Debian)
+   - [OpenSSL]: For RSA generation and SHA1 rechecks (`libssl-dev` on Debian/Ubuntu)
    - [GCC] or [CLANG]: Works on both with any decent version.
    - [Autotools] for build system (autoconf, automake, etc...)
 
@@ -49,7 +49,7 @@ make
 Package building
 ----------------
 
-See also our mirror of [binary packages] for debian and centos.
+See also our mirror of [binary packages] for centos, debian and ubuntu.
 
 ### Centos
 
@@ -65,9 +65,9 @@ make rpm
 You can then install these packages using `yum` or `dnf`, they are located in `_build/RPMS/x86_64/`.
 
 
-### Debian
+### Debian and Ubuntu
 
-Debian package build procedure has been tested on Debian10 but would probably also work on other debian forks.
+Debian package build procedure has been tested on Debian10 and Ubuntu20.04 but would probably also work on other debian based distributions.
 Before you can build the debian package make sure to install all required tools such as `devscripts`, `lintian`, `build-essential`, `pkg-config`.
 
 ```sh
@@ -139,7 +139,7 @@ A `hostname` file will be created in `HiddenServiceDir` containing your new .oni
 
 Security
 --------
-All generated RSA keypairs are checked using standard OpenSSL methods.
+All generated RSA key pairs are checked using standard OpenSSL methods.
 The only drawback I see from this way of generating .onion addresses is the unusual size of the public exponent e.
 This unusual size makes it obvious that you used Leek or any other similar software for .onion address generation.
 
@@ -208,7 +208,7 @@ grep avx512bw /proc/cpuinfo
 
 ### How do I check whether AVX2 is available on my CPU?
 
-AVX2 instruction set is available since 2014 and Haswell processors (i3/i5/i7 4000 serie).
+AVX2 instruction set is available since 2014 and Haswell processors (i3/i5/i7 4000 series).
 It is also supported on AMD processors since 2015 and the Excavator family.
 To check compatibility please run the following command:
 ```sh
