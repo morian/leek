@@ -484,7 +484,7 @@ static int leek_vecx_exhaust(struct leek_rsa_item *item, struct leek_worker *wk)
 			/* Check results for all lanes here */
 			for (int r = 0; r < VECX_LANE_COUNT; ++r) {
 				union leek_rawaddr *result;
-				int length;
+				unsigned int length;
 				int ret;
 
 				result = &lv->R[r].addr;

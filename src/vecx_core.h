@@ -128,7 +128,7 @@ struct leek_vecx {
 	vecx PA_C03; /* 'add' pre-compute for cycle 3 (post stage 1) */
 
 	/* Final resulting addresses (hashes) */
-	union vec_rawaddr  R[VECX_LANE_COUNT];
+	union vec_rawaddr R[VECX_LANE_COUNT];
 };
 
 #endif /* !__LEEK_VECX_CORE_H */

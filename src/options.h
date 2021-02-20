@@ -2,9 +2,9 @@
 # define __LEEK_OPTIONS_H
 # include "helper.h"
 
-# define LEEK_PREFIX_LENGTH_MIN                 4
+# define LEEK_PREFIX_LENGTH_MIN                4u
 # define LEEK_PREFIX_LENGTH_MAX  LEEK_ADDRESS_LEN
-# define LEEK_THREADS_MAX                     512
+# define LEEK_THREADS_MAX                    512u
 
 
 	/* Structure holding configuration from argument parsing */

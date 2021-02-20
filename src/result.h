@@ -43,7 +43,7 @@ int leek_result_recheck(struct leek_rsa_item *item, uint32_t exponent,
                         const union leek_rawaddr *addr);
 
 /* Handle a valid result (writing to file, displaying, etc...) */
-void leek_result_handle(RSA *rsa, uint32_t exponent, int length,
+void leek_result_handle(RSA *rsa, uint32_t exponent, unsigned int length,
                         const union leek_rawaddr *addr);
 
 /* Show all items in queue */

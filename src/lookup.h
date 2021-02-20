@@ -25,7 +25,7 @@ static uint64_t leek_lookup_mask[LEEK_PREFIX_LENGTH_MAX + 1] = {
 	0x0000000000000000,
 };
 
-static int leek_result_lookup(const union leek_rawaddr *addr)
+static unsigned int leek_result_lookup(const union leek_rawaddr *addr)
 {
 	struct leek_hash_bucket *bucket = &leek.hashes.bucket[addr->index];
 	uint64_t val;

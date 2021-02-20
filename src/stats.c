@@ -81,9 +81,9 @@ void leek_stats_application_display(void)
 		printf(" remaining)");
 	}
 	if (leek.stats.successes)
-		printf(", success: %zu", leek.stats.successes);
+		printf(", success: %lu", leek.stats.successes);
 	if (leek.stats.recheck_failures)
-		printf(", failure: %zu", leek.stats.recheck_failures);
+		printf(", failure: %lu", leek.stats.recheck_failures);
 	printf("\n");
 }
 

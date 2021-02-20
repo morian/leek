@@ -1,20 +1,20 @@
 #ifndef __LEAK_HELPER_H
 # define __LEAK_HELPER_H
 
-# define LEEK_ADDRESS_LEN              16
-# define LEEK_RAWADDR_LEN              10
-# define LEEK_CACHELINE_SZ             64 /* bytes */
+# define LEEK_ADDRESS_LEN              16u
+# define LEEK_RAWADDR_LEN              10u
+# define LEEK_CACHELINE_SZ             64u /* bytes */
 
 /* Number of bits per base32 character */
-# define LEEK_RAWADDR_CHAR_BITS        5
+# define LEEK_RAWADDR_CHAR_BITS        5u
 
 /* This value ensures that our exponent will always be 4 bytes wide
  * We may consider starting at RSA_F4 instead and handle 3 bytes exponent. */
-# define LEEK_RSA_E_SIZE               4 /* bytes */
+# define LEEK_RSA_E_SIZE               4u /* bytes */
 # define LEEK_RSA_E_START              0x00800001u
 /* This limit allows for 8 parallel computations */
 # define LEEK_RSA_E_LIMIT              0x7FFFFFFFu
-# define LEEK_RSA_KEYSIZE              1024
+# define LEEK_RSA_KEYSIZE              1024u
 # define LEEK_RSA_PRIME_SIZE           (LEEK_RSA_KEYSIZE / 2)
 
 /* Compiler short flags for functions and structures */

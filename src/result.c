@@ -309,8 +309,8 @@ out:
 }
 
 
-static void leek_result_write(const uint8_t *onion, const uint8_t *prv_key,
-                              size_t prv_len)
+static void leek_result_write(const uint8_t *onion,
+                              const uint8_t *prv_key, size_t prv_len)
 {
 	size_t result_path_sz;
 	char *result_path;
@@ -336,7 +336,7 @@ static void leek_result_write(const uint8_t *onion, const uint8_t *prv_key,
 }
 
 
-void leek_result_handle(RSA *rsa, uint32_t exponent, int length,
+void leek_result_handle(RSA *rsa, uint32_t exponent, unsigned int length,
                         const union leek_rawaddr *addr)
 {
 	uint8_t onion_address[LEEK_ADDRESS_LEN];
@@ -358,6 +358,7 @@ void leek_result_handle(RSA *rsa, uint32_t exponent, int length,
 
 	prv_output = malloc(buffer->length);
 	if (!prv_output) {
+		/* This fallback has been set to never ever loose a result if malloc fails. */
 		prv_output = alloca(buffer->length);
 		prv_output_free = false;
 	}
