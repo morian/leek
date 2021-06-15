@@ -82,6 +82,7 @@ debian10-build:
       - cache/aptdeb
   before_script:
     - mkdir --parents cache/aptdeb
+    - apt-get update --yes
     - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y libssl-dev
   script:
     - bash autogen.sh
@@ -104,6 +105,7 @@ debian10-tests:
     - debian10-build
   before_script:
     - mkdir --parents cache/aptdeb
+    - apt-get update --yes
     - dpkg -i _build/DEBIAN/leek_*.deb
     - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y python3-pyasn1 python3-pyasn1-modules
   script:
@@ -119,6 +121,7 @@ ubuntu2004-build:
       - cache/aptubn
   before_script:
     - mkdir --parents cache/aptubn
+    - apt-get update --yes
     - apt-get -o dir::cache::archives="${PWD}/cache/aptubn" install -y libssl-dev
   script:
     - bash autogen.sh
@@ -141,6 +144,7 @@ ubuntu2004-tests:
     - ubuntu2004-build
   before_script:
     - mkdir --parents cache/aptubn
+    - apt-get update --yes
     - dpkg -i _build/DEBIAN/leek_*.deb
     - apt-get -o dir::cache::archives="${PWD}/cache/aptubn" install -y python3-pyasn1 python3-pyasn1-modules
   script:
