@@ -37,7 +37,6 @@ centos7-tests:
     - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
     - python tests/checker.py output/*
 
-
 centos8-build:
   image: ${CI_REGISTRY}/dockers/ci/centos-build:8
   stage: build
@@ -72,7 +71,6 @@ centos8-tests:
     - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
     - python tests/checker.py output/*
 
-
 debian10-build:
   image: ${CI_REGISTRY}/dockers/ci/debian-build:10
   stage: build
@@ -103,6 +101,45 @@ debian10-tests:
       - cache/aptdeb
   needs:
     - debian10-build
+  before_script:
+    - mkdir --parents cache/aptdeb
+    - apt-get update --yes
+    - dpkg -i _build/DEBIAN/leek_*.deb
+    - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y python3-pyasn1 python3-pyasn1-modules
+  script:
+    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - python3 tests/checker.py output/*
+
+debian11-build:
+  image: ${CI_REGISTRY}/dockers/ci/debian-build:11
+  stage: build
+  cache:
+    key: "debian11"
+    paths:
+      - cache/aptdeb
+  before_script:
+    - mkdir --parents cache/aptdeb
+    - apt-get update --yes
+    - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y libssl-dev
+  script:
+    - bash autogen.sh
+    - ./configure
+    - make deb
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - _build/DEBIAN/leek_*.deb
+      - _build/DEBIAN/leek-*.deb
+
+debian11-tests:
+  image: ${CI_REGISTRY}/dockers/ci/debian-build:11
+  stage: tests
+  cache:
+    key: "debian11"
+    paths:
+      - cache/aptdeb
+  needs:
+    - debian11-build
   before_script:
     - mkdir --parents cache/aptdeb
     - apt-get update --yes
