@@ -34,11 +34,11 @@ int leek_implementation_select(const char *name);
 
 
 /** All known implementations (build time) **/
-const struct leek_implementation leek_impl_openssl;
-const struct leek_implementation leek_impl_uint;
-const struct leek_implementation leek_impl_ssse3;
-const struct leek_implementation leek_impl_avx2;
-const struct leek_implementation leek_impl_avx512;
+extern const struct leek_implementation leek_impl_openssl;
+extern const struct leek_implementation leek_impl_uint;
+extern const struct leek_implementation leek_impl_ssse3;
+extern const struct leek_implementation leek_impl_avx2;
+extern const struct leek_implementation leek_impl_avx512;
 
 /* All built implementations in a nice structure */
 extern const struct leek_implementation *leek_implementations[];
