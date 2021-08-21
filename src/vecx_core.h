@@ -94,9 +94,9 @@
 
 
 /* 'addr' is 10 bytes but we need to round to the next power of 2
- * This union just ensures that we are will be 16B aligned */
+ * This union just ensures that we are aligned on a 16B boundary */
 union vec_rawaddr {
-	uint8_t padding[VEC_RAWADDR_LEN];
+	uint8_t data[VEC_RAWADDR_LEN];
 	union leek_rawaddr addr;
 };
 

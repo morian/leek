@@ -190,7 +190,7 @@ static void leek_exhaust_precalc_2(struct leek_vecx *lv, vecx vexpo_1)
 /* Customized hash function (final block) */
 static void leek_vecx_finalize(struct leek_vecx *lv, vecx vexpo_0)
 {
-	void *resptr = (void *) &lv->R;
+	uint8_t *bufout = lv->R[0].data;
 	vecx a, b, c, d, e;
 	/* 80 rounds minus the 3 finals */
 	vecx W[77];
@@ -308,10 +308,10 @@ static void leek_vecx_finalize(struct leek_vecx *lv, vecx vexpo_0)
 	vecx_transpose(a, b, c, d);
 
 	/* Store all output results */
-	vecx_store(resptr + 0 * VECX_WORD_SIZE, vecx_bswap(a));
-	vecx_store(resptr + 1 * VECX_WORD_SIZE, vecx_bswap(b));
-	vecx_store(resptr + 2 * VECX_WORD_SIZE, vecx_bswap(c));
-	vecx_store(resptr + 3 * VECX_WORD_SIZE, vecx_bswap(d));
+	vecx_store(bufout + 0 * VECX_WORD_SIZE, vecx_bswap(a));
+	vecx_store(bufout + 1 * VECX_WORD_SIZE, vecx_bswap(b));
+	vecx_store(bufout + 2 * VECX_WORD_SIZE, vecx_bswap(c));
+	vecx_store(bufout + 3 * VECX_WORD_SIZE, vecx_bswap(d));
 }
 
 
@@ -411,7 +411,7 @@ static int leek_vecx_precalc(struct leek_rsa_item *item, const void *ptr, size_t
 		leek_vecx_block_update(lv, ptr);
 		leek_vecx_update(lv);
 		rem -= VEC_SHA1_BLOCK_SIZE;
-		ptr += VEC_SHA1_BLOCK_SIZE;
+		ptr = (uint8_t *) ptr + VEC_SHA1_BLOCK_SIZE;
 	}
 
 	/* These checks are *HIGHLY* improbable in theory, but let's be safe here */
