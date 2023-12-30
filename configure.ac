@@ -33,10 +33,11 @@ AX_CHECK_COMPILE_FLAG([-std=c11],
 	])
 ])
 
-CFLAGS+=" -pipe -D_GNU_SOURCE -Wall -Wextra -Wno-missing-braces \
--Wmissing-declarations -Wmissing-prototypes -Wlogical-op -Wshadow \
--Wstrict-prototypes -Wwrite-strings -Wvla -Wformat-security -Wformat=2 \
--Wnested-externs -Wchar-subscripts -Wtype-limits -Wno-unused-parameter"
+CFLAGS+=" -D_GNU_SOURCE -DOPENSSL_API_COMPAT=0x10000000L -DOPENSSL_NO_DEPRECATED=1 \
+-pipe -Wall -Wextra -Wno-missing-braces -Wmissing-declarations \
+-Wmissing-prototypes -Wlogical-op -Wshadow -Wstrict-prototypes \
+-Wwrite-strings -Wvla -Wformat-security -Wformat=2 -Wnested-externs \
+-Wchar-subscripts -Wtype-limits -Wno-unused-parameter"
 
 # The following flags are not supported by all compilers.
 AX_CHECK_COMPILE_FLAG([-Wnormalized], [AX_APPEND_FLAG([-Wnormalized])], [])
