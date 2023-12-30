@@ -217,7 +217,7 @@ ubuntu2204-tests:
     paths:
       - cache/aptubn
   needs:
-    - ubuntu2004-build
+    - ubuntu2204-build
   before_script:
     - mkdir --parents cache/aptubn
     - apt-get update --yes
