@@ -15,8 +15,11 @@ struct leek_implementation {
 	/* Checks whether the current implementation is available at runtime */
 	int (*available) (void);
 
-	/* Initialize local structures (set lc->private_data, must be free-able) */
+	/* Initialize local structures (set lc->private_data) */
 	void *(*allocate) (void);
+
+	/* Cleanup local structures (when not implemented and not NULL, free is called) */
+	void (*cleanup) (void *private_data);
 
 	/* Perform SHA1 precalculus after a new RSA key pair had been generated */
 	int (*precalc) (struct leek_rsa_item *item, const void *ptr, size_t len);

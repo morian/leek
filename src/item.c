@@ -282,6 +282,15 @@ static void *leek_impl_allocate(void)
 }
 
 
+static void leek_impl_cleanup(void *private_data)
+{
+	if (leek.implementation->cleanup)
+		leek.implementation->cleanup(private_data);
+	else
+		free(private_data);
+}
+
+
 static int leek_impl_precalc(struct leek_rsa_item *item, const uint8_t *der, size_t len)
 {
 	return leek.implementation->precalc(item, der, len);
@@ -365,7 +374,7 @@ void leek_item_destroy(struct leek_rsa_item *item)
 		if (item->rsa)
 			RSA_free(item->rsa);
 		if (item->private_data)
-			free(item->private_data);
+			leek_impl_cleanup(item->private_data);
 		free(item);
 	}
 }
