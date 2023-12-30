@@ -2,15 +2,10 @@
 # define __LEEK_RESULT_H
 # include <stdbool.h>
 # include <stdint.h>
-# include <openssl/opensslv.h>
 # include <openssl/rsa.h>
 
 # include "item.h"
 # include "hashes.h"
-
-# ifndef OPENSSL_VERSION_1_1
-#  define OPENSSL_VERSION_1_1    0x10100000L
-# endif
 
 /* Forward declaration */
 struct leek_result;

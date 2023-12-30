@@ -1,6 +1,8 @@
 #ifndef __LEAK_HELPER_H
 # define __LEAK_HELPER_H
 
+# include <openssl/opensslv.h>
+
 # define LEEK_ADDRESS_LEN              16u
 # define LEEK_RAWADDR_LEN              10u
 # define LEEK_CACHELINE_SZ             64u /* bytes */
@@ -30,6 +32,13 @@
 #  define ARRAY_SIZE(a)  (sizeof(a) / sizeof(a[0]))
 # endif
 
+# ifndef OPENSSL_VERSION_1_1
+#  define OPENSSL_VERSION_1_1    0x10100000L
+# endif
+
+# ifndef OPENSSL_VERSION_3_0
+#  define OPENSSL_VERSION_3_0    0x30000000L
+# endif
 
 /* Create result directory if needed */
 int leek_result_dir_init(void);
