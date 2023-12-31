@@ -34,7 +34,7 @@ centos7-tests:
     - yum install -y _build/RPMS/x86_64/*.rpm
     - yum --setopt=cachedir=cache/yum install -y python2-pyasn1 python2-pyasn1-modules
   script:
-    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - leek --verbose --threads=2 --stop --output=output/ --duration 60s --prefix gitlab
     - python tests/checker.py output/*
 
 centos8-build:
@@ -68,7 +68,7 @@ centos8-tests:
     - dnf install -y _build/RPMS/x86_64/*.rpm
     - dnf --setopt=cachedir=cache/dnf install -y python3-pyasn1 python3-pyasn1-modules
   script:
-    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - leek --verbose --threads=2 --stop --output=output/ --duration 60s --prefix gitlab
     - python tests/checker.py output/*
 
 debian10-build:
@@ -107,7 +107,7 @@ debian10-tests:
     - dpkg -i _build/DEBIAN/leek_*.deb
     - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y python3-pyasn1 python3-pyasn1-modules
   script:
-    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - leek --verbose --threads=2 --stop --output=output/ --duration 60s --prefix gitlab
     - python3 tests/checker.py output/*
 
 debian11-build:
@@ -146,7 +146,7 @@ debian11-tests:
     - dpkg -i _build/DEBIAN/leek_*.deb
     - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y python3-pyasn1 python3-pyasn1-modules
   script:
-    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - leek --verbose --threads=2 --stop --output=output/ --duration 60s --prefix gitlab
     - python3 tests/checker.py output/*
 
 debian12-build:
@@ -185,7 +185,7 @@ debian12-tests:
     - dpkg -i _build/DEBIAN/leek_*.deb
     - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y python3-pyasn1 python3-pyasn1-modules
   script:
-    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - leek --verbose --threads=2 --stop --output=output/ --duration 60s --prefix gitlab
     - python3 tests/checker.py output/*
 
 ubuntu2004-build:
@@ -224,7 +224,7 @@ ubuntu2004-tests:
     - dpkg -i _build/DEBIAN/leek_*.deb
     - apt-get -o dir::cache::archives="${PWD}/cache/aptubn" install -y python3-pyasn1 python3-pyasn1-modules
   script:
-    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - leek --verbose --threads=2 --stop --output=output/ --duration 60s --prefix gitlab
     - python3 tests/checker.py output/*
 
 ubuntu2204-build:
@@ -263,5 +263,5 @@ ubuntu2204-tests:
     - dpkg -i _build/DEBIAN/leek_*.deb
     - apt-get -o dir::cache::archives="${PWD}/cache/aptubn" install -y python3-pyasn1 python3-pyasn1-modules
   script:
-    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - leek --verbose --threads=2 --stop --output=output/ --duration 60s --prefix gitlab
     - python3 tests/checker.py output/*
