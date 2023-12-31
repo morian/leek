@@ -1,3 +1,11 @@
+leek (2.0.6-1) stable; urgency=low
+
+  * Ensure compatibility with Debian 11, Debian 12, Ubuntu 20.04 and Ubuntu 22.04
+  * Fix multiple warnings during build
+  * Fix a possible NULL dereference found by cppcheck
+
+ -- Romain Bezut <morian@xdec.net>  Sun, 31 Dec 2022 14:30:00 +0100
+
 leek (2.0.5-1) stable; urgency=low
 
   * Move to epoll for main event loop.
