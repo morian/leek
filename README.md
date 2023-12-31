@@ -6,7 +6,7 @@ Leek
 
 About
 -----
-Leek is another tool to generate custom .onion addresses for [TOR] [hidden services](https://www.torproject.org/docs/hidden-services).
+Leek is another tool to generate custom .onion addresses for [TOR] [hidden services](https://tb-manual.torproject.org/onion-services/).
 This program leverages vector instructions sets (_SSSE3_ / _AVX2_ / _AVX512_) to compute 4, 8 or 16 addresses in parallel.
 First-generation .onion address generation heavily relies on SHA1 hashes, that's why Leek also uses a redesigned version of SHA1.
 
@@ -236,7 +236,7 @@ No, please feel free to use a WSL or any kind of virtual machine.
    [GCC]: <https://gcc.gnu.org>
    [CLANG]: <https://clang.llvm.org/>
    [eschalot]: <https://github.com/ReclaimYourPrivacy/eschalot>
-   [shallot]: <https://github.com/katmagic/Shallot>
+   [shallot]: <https://github.com/dendisuhubdy/Shallot>
    [license_img]: <https://img.shields.io/badge/license-MIT-blue.svg>
    [license_url]: <https://github.com/morian/leek/blob/master/LICENSE>
    [AVX512 Ternary functions]: <http://0x80.pl/articles/avx512-ternary-functions.html>
