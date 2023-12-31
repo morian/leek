@@ -149,6 +149,45 @@ debian11-tests:
     - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
     - python3 tests/checker.py output/*
 
+debian12-build:
+  image: ${CI_REGISTRY}/dockers/ci/debian-build:12
+  stage: build
+  cache:
+    key: "debian12"
+    paths:
+      - cache/aptdeb
+  before_script:
+    - mkdir --parents cache/aptdeb
+    - apt-get update --yes
+    - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y libssl-dev
+  script:
+    - bash autogen.sh
+    - ./configure
+    - make deb
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - _build/DEBIAN/leek_*.deb
+      - _build/DEBIAN/leek-*.deb
+
+debian12-tests:
+  image: ${CI_REGISTRY}/dockers/ci/debian-build:12
+  stage: tests
+  cache:
+    key: "debian12"
+    paths:
+      - cache/aptdeb
+  needs:
+    - debian12-build
+  before_script:
+    - mkdir --parents cache/aptdeb
+    - apt-get update --yes
+    - dpkg -i _build/DEBIAN/leek_*.deb
+    - apt-get -o dir::cache::archives="${PWD}/cache/aptdeb" install -y python3-pyasn1 python3-pyasn1-modules
+  script:
+    - leek --verbose --stop --output=output/ --duration 60s --prefix gitlab
+    - python3 tests/checker.py output/*
+
 ubuntu2004-build:
   image: ${CI_REGISTRY}/dockers/ci/ubuntu-build:20.04
   stage: build

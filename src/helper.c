@@ -70,7 +70,12 @@ int leek_openssl_init(void)
 	for(int i = 0; i < CRYPTO_num_locks(); ++i)
 		pthread_mutex_init(&leek_openssl_locks[i], NULL);
 
+#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1
+	CRYPTO_set_id_callback(leek_thread_id);
+#else
 	CRYPTO_THREADID_set_callback(leek_thread_id);
+#endif
+
 	CRYPTO_set_locking_callback(leek_lock_callback);
 
 	ret = 0;
